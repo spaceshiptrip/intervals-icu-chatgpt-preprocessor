@@ -1,0 +1,381 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Local canonical workout snapshot v1 (not a bridge API contract)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "canonical_workout_id",
+      "session_group_id",
+      "local_date",
+      "start_utc",
+      "end_utc",
+      "start_local",
+      "end_local",
+      "sport",
+      "sub_sport",
+      "source_activity_ids",
+      "primary_source_activity_ids",
+      "segment_count",
+      "canonical_status",
+      "confidence",
+      "requires_user_review",
+      "mileage_requires_user_review",
+      "physical_distance_requires_user_review",
+      "distance_m",
+      "run_distance_m",
+      "trail_distance_m",
+      "provisional_distance_m",
+      "provisional_run_distance_m",
+      "candidate_additional_distance_m",
+      "recovered_distance_m",
+      "non_running_recovered_distance_m",
+      "elapsed_duration_s",
+      "timer_duration_s",
+      "moving_duration_s",
+      "active_distance_m",
+      "active_pace_min_mile",
+      "active_pace_scope",
+      "recorded_active_distance_m",
+      "recorded_active_duration_s",
+      "recorded_active_pace_min_mile",
+      "estimated_stationary_duration_s",
+      "avg_hr_bpm",
+      "max_hr_bpm",
+      "ascent_m",
+      "descent_m",
+      "elevation_source",
+      "training_load",
+      "intervals_load",
+      "training_stress_score",
+      "aerobic_training_effect",
+      "anaerobic_training_effect",
+      "summary_note",
+      "counts_toward_training_totals",
+      "distance_miles",
+      "run_distance_miles",
+      "trail_distance_miles",
+      "elapsed_pace_min_mile",
+      "distance_source_activity_ids",
+      "pace_source_activity_ids",
+      "hr_source_activity_ids",
+      "elevation_source_activity_ids",
+      "elapsed_source_activity_ids",
+      "source_segment_count",
+      "revision"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "canonical-workout-1"
+      },
+      "canonical_workout_id": {
+        "type": "string",
+        "pattern": "^cw_[a-f0-9]{20}$"
+      },
+      "session_group_id": {
+        "type": "string",
+        "pattern": "^cw_[a-f0-9]{20}$"
+      },
+      "local_date": {
+        "type": "string",
+        "format": "date"
+      },
+      "start_utc": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "end_utc": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "start_local": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "end_local": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "sport": {
+        "type": "string"
+      },
+      "sub_sport": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "source_activity_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "primary_source_activity_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "segment_count": {
+        "type": "integer"
+      },
+      "canonical_status": {
+        "enum": [
+          "direct",
+          "duplicate_resolved",
+          "composite",
+          "reconstructed",
+          "user_confirmed",
+          "ambiguous"
+        ]
+      },
+      "confidence": {
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "requires_user_review": {
+        "type": "boolean"
+      },
+      "mileage_requires_user_review": {
+        "type": "boolean"
+      },
+      "physical_distance_requires_user_review": {
+        "type": "boolean"
+      },
+      "distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "run_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "trail_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "provisional_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "provisional_run_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "candidate_additional_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "recovered_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "non_running_recovered_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "elapsed_duration_s": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "timer_duration_s": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "moving_duration_s": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "active_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "active_pace_min_mile": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "active_pace_scope": {
+        "type": "string"
+      },
+      "recorded_active_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "recorded_active_duration_s": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "recorded_active_pace_min_mile": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "estimated_stationary_duration_s": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "avg_hr_bpm": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "max_hr_bpm": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "ascent_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "descent_m": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "elevation_source": {
+        "type": "string"
+      },
+      "training_load": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "intervals_load": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "training_stress_score": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "aerobic_training_effect": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "anaerobic_training_effect": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "summary_note": {
+        "type": "string"
+      },
+      "counts_toward_training_totals": {
+        "type": "boolean"
+      },
+      "distance_miles": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "run_distance_miles": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "trail_distance_miles": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "elapsed_pace_min_mile": {
+        "type": [
+          "number",
+          "null"
+        ]
+      },
+      "distance_source_activity_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "pace_source_activity_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "hr_source_activity_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "elevation_source_activity_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "elapsed_source_activity_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "source_segment_count": {
+        "type": "integer"
+      },
+      "revision": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,1056 @@
+{
+  "schema_version": "canonical-workout-1",
+  "synthetic": true,
+  "description": "Test fixture: Garmin explicit 300 s pause omits 750 m while dense Amazfit samples show movement. Not measured October 6 data.",
+  "source_summary": [
+    {
+      "source_activity_id": "g",
+      "device_family": "Garmin",
+      "distance_m": 2250.0,
+      "timer_duration_s": 900
+    },
+    {
+      "source_activity_id": "a",
+      "device_family": "Amazfit",
+      "distance_m": 3000.0,
+      "timer_duration_s": 1200
+    }
+  ],
+  "canonical_workouts": [
+    {
+      "schema_version": "canonical-workout-1",
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "session_group_id": "cw_d9444fff27d40220f4b2",
+      "local_date": "2026-10-06",
+      "start_utc": "2026-10-06T17:00:00+00:00",
+      "end_utc": "2026-10-06T17:20:00+00:00",
+      "start_local": "2026-10-06T10:00:00-07:00",
+      "end_local": "2026-10-06T10:20:00-07:00",
+      "sport": "running",
+      "sub_sport": "generic",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "primary_source_activity_ids": [
+        "g"
+      ],
+      "segment_count": 2,
+      "canonical_status": "reconstructed",
+      "confidence": "high",
+      "requires_user_review": false,
+      "mileage_requires_user_review": false,
+      "physical_distance_requires_user_review": false,
+      "distance_m": 3000.0,
+      "run_distance_m": 3000.0,
+      "trail_distance_m": 0,
+      "provisional_distance_m": 3000.0,
+      "provisional_run_distance_m": 3000.0,
+      "candidate_additional_distance_m": 0,
+      "recovered_distance_m": 750.0,
+      "non_running_recovered_distance_m": 0,
+      "elapsed_duration_s": 1200.0,
+      "timer_duration_s": null,
+      "moving_duration_s": null,
+      "active_distance_m": null,
+      "active_pace_min_mile": null,
+      "active_pace_scope": "partial_Garmin_pace_separate",
+      "recorded_active_distance_m": 2250.0,
+      "recorded_active_duration_s": 900,
+      "recorded_active_pace_min_mile": 10.728959999999999,
+      "estimated_stationary_duration_s": null,
+      "avg_hr_bpm": 135.0,
+      "max_hr_bpm": 160,
+      "ascent_m": 120,
+      "descent_m": 115,
+      "elevation_source": "unknown",
+      "training_load": null,
+      "intervals_load": null,
+      "training_stress_score": null,
+      "aerobic_training_effect": null,
+      "anaerobic_training_effect": null,
+      "summary_note": "750.0 m recovered from Amazfit measured gap evidence; Garmin pace covers recorded portions.",
+      "counts_toward_training_totals": true,
+      "distance_miles": 1.8641135767120018,
+      "run_distance_miles": 1.8641135767120018,
+      "trail_distance_miles": 0.0,
+      "elapsed_pace_min_mile": 10.72896,
+      "distance_source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "pace_source_activity_ids": [
+        "g"
+      ],
+      "hr_source_activity_ids": [
+        "g"
+      ],
+      "elevation_source_activity_ids": [
+        "g"
+      ],
+      "elapsed_source_activity_ids": [
+        "a"
+      ],
+      "source_segment_count": 1,
+      "revision": "revision_e8fe22401de54ea80086"
+    }
+  ],
+  "field_provenance": [
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "distance_m",
+      "value": 3000.0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "preferred_distance_plus_measured_secondary_gap",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:06:00+00:00",
+          "end_utc": "2026-10-06T17:11:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "run_distance_m",
+      "value": 3000.0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "confirmed_running_gap_plus_recorded_running",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:06:00+00:00",
+          "end_utc": "2026-10-06T17:11:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "trail_distance_m",
+      "value": 0,
+      "unit": "m",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "timer_duration_s",
+      "value": null,
+      "unit": "s",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "unknown_full_coverage_after_distance_repair",
+      "coverage_scope": "incomplete",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "moving_duration_s",
+      "value": null,
+      "unit": "s",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "unknown_full_coverage_after_distance_repair",
+      "coverage_scope": "incomplete",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "active_distance_m",
+      "value": null,
+      "unit": "m",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "unknown_full_coverage_after_distance_repair",
+      "coverage_scope": "incomplete",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "avg_hr_bpm",
+      "value": 135.0,
+      "unit": "bpm",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "max_hr_bpm",
+      "value": 160,
+      "unit": "bpm",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "ascent_m",
+      "value": 120,
+      "unit": "m",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "descent_m",
+      "value": 115,
+      "unit": "m",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "training_load",
+      "value": null,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "intervals_load",
+      "value": null,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "training_stress_score",
+      "value": null,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "recorded_active_distance_m",
+      "value": 2250.0,
+      "unit": "m",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "recorded_active_duration_s",
+      "value": 900,
+      "unit": "s",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "preferred_source",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "recorded_active_pace_min_mile",
+      "value": 10.728959999999999,
+      "unit": "min/mile",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "timer_over_recorded_distance",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "aerobic_training_effect",
+      "value": null,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "Garmin_metric_max_over_segments",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "anaerobic_training_effect",
+      "value": null,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "Garmin_metric_max_over_segments",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "start_utc",
+      "value": "2026-10-06T17:00:00+00:00",
+      "unit": "ISO UTC",
+      "source_activity_ids": [
+        "a"
+      ],
+      "method": "continuous_timeline",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "end_utc",
+      "value": "2026-10-06T17:20:00+00:00",
+      "unit": "ISO UTC",
+      "source_activity_ids": [
+        "a"
+      ],
+      "method": "continuous_timeline",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "elapsed_duration_s",
+      "value": 1200.0,
+      "unit": "s",
+      "source_activity_ids": [
+        "a"
+      ],
+      "method": "continuous_timeline",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "active_pace_min_mile",
+      "value": null,
+      "unit": "min/mile",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "unknown_full_coverage_after_distance_repair",
+      "coverage_scope": "incomplete",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "elapsed_pace_min_mile",
+      "value": 10.72896,
+      "unit": "min/mile",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "elapsed_over_canonical_physical_distance",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "distance_miles",
+      "value": 1.8641135767120018,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "meters_to_miles",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "run_distance_miles",
+      "value": 1.8641135767120018,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "meters_to_miles",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "trail_distance_miles",
+      "value": 0.0,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "g"
+      ],
+      "method": "meters_to_miles",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "local_date",
+      "value": "2026-10-06",
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a"
+      ],
+      "method": "America/Los_Angeles_calendar_conversion",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "start_local",
+      "value": "2026-10-06T10:00:00-07:00",
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a"
+      ],
+      "method": "America/Los_Angeles_calendar_conversion",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "end_local",
+      "value": "2026-10-06T10:20:00-07:00",
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a"
+      ],
+      "method": "America/Los_Angeles_calendar_conversion",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "provisional_distance_m",
+      "value": 3000.0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "explicit_provisional_baseline",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "provisional_run_distance_m",
+      "value": 3000.0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "explicit_provisional_baseline",
+      "coverage_scope": "recorded_portions",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "recovered_distance_m",
+      "value": 750.0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "measured_gap_decision_ledger",
+      "coverage_scope": "observed_gaps",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "non_running_recovered_distance_m",
+      "value": 0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "measured_gap_decision_ledger",
+      "coverage_scope": "observed_gaps",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "candidate_additional_distance_m",
+      "value": 0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "measured_gap_decision_ledger",
+      "coverage_scope": "observed_gaps",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "segment_count",
+      "value": 2,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "canonical_relationship_and_issue_rules",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "source_segment_count",
+      "value": 1,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "canonical_relationship_and_issue_rules",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "canonical_status",
+      "value": "reconstructed",
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "canonical_relationship_and_issue_rules",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "confidence",
+      "value": "high",
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "canonical_relationship_and_issue_rules",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "requires_user_review",
+      "value": false,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "canonical_relationship_and_issue_rules",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "mileage_requires_user_review",
+      "value": false,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "canonical_relationship_and_issue_rules",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "physical_distance_requires_user_review",
+      "value": false,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "canonical_relationship_and_issue_rules",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    }
+  ],
+  "workout_segments": [
+    {
+      "workout_segment_id": "segment_55f6a26c4b7851257b7b",
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "session_group_id": "cw_d9444fff27d40220f4b2",
+      "source_activity_id": "g",
+      "segment_order": 1,
+      "segment_role": "unknown",
+      "role_source": "unknown",
+      "sport": "running",
+      "sub_sport": "generic",
+      "start_utc": "2026-10-06T17:00:00+00:00",
+      "end_utc": "2026-10-06T17:20:00+00:00",
+      "distance_m": 2250.0,
+      "timer_duration_s": 900,
+      "counts_separately_in_training_totals": false,
+      "included_in_parent_distance": true,
+      "distance_coverage": "recorded_portion",
+      "name": "Morning Run"
+    },
+    {
+      "workout_segment_id": "segment_752666297652c013d36e",
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "session_group_id": "cw_d9444fff27d40220f4b2",
+      "source_activity_id": "a",
+      "segment_order": null,
+      "segment_role": "unknown",
+      "role_source": "unknown",
+      "sport": "running",
+      "sub_sport": null,
+      "start_utc": "2026-10-06T17:06:00+00:00",
+      "end_utc": "2026-10-06T17:11:00+00:00",
+      "distance_m": 750.0,
+      "timer_duration_s": null,
+      "counts_separately_in_training_totals": false,
+      "included_in_parent_distance": true,
+      "distance_coverage": "secondary_recovered_gap",
+      "name": "Recovered secondary-device movement"
+    }
+  ],
+  "reconstruction_issues": [
+    {
+      "issue_id": "issue_b612ef2da24923dfe373",
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "local_date": "2026-10-06",
+      "classification": "probable_forgotten_resume",
+      "start_utc": "2026-10-06T17:06:00+00:00",
+      "end_utc": "2026-10-06T17:11:00+00:00",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "evidence_json": {
+        "distance_m": 750.0,
+        "sample_count": 51,
+        "sampled_start_utc": "2026-10-06T17:06:00+00:00",
+        "sampled_end_utc": "2026-10-06T17:11:00+00:00",
+        "coverage_fraction": 1,
+        "motion_duration_s": 300.0,
+        "running_fraction": 1.0,
+        "stationary_duration_s": 0,
+        "max_sample_gap_s": 6.0,
+        "gap_signal": "timer_pause",
+        "primary_distance_during_gap_m": 0.0,
+        "aligned_before_and_after": true,
+        "recoverable_distance_m": 750.0
+      },
+      "candidate_additional_distance_m": 750.0,
+      "confidence": "high",
+      "requires_user_review": false,
+      "resolution": "automatic_secondary_gap_repair",
+      "user_decision": null
+    }
+  ],
+  "expected_daily_running_miles": 1.8641135767120018
+}

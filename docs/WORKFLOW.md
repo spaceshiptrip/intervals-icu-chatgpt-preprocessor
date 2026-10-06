@@ -1,0 +1,19 @@
+# Jay training system — shared workflow
+
+Version 2026-10-06; timezone America/Los_Angeles. Durable record of Jay's supplied five-role workflow.
+
+Web ChatGPT owns analysis, advisory training changes and exact dated proposals. It does not implement, deploy, change contracts independently, or claim saved sheets without verified writes/readback. Preprocessor Codex owns this existing preprocessing architecture and implementation; Preprocessor Claude reviews/co-implements it after reading HANDOFF.md and relevant specs. Bridge Codex owns Apps Script, layout/API/client, imports and write/revision/audit/recovery logic; Bridge Claude reviews/co-implements the same bridge, preserving its accepted API. Both teams update code, tests, docs and handoff together. A suggestion is not implementation; code is not deployment; a payload is not a saved spreadsheet change.
+
+Source activity, meaningful segment, and canonical physical workout are distinct. Two watches, pauses, split warmup/workout/cooldown, and continuous companions can all describe one outing. Preserve sources and provenance; never count overlapping watches twice or combine genuine doubles merely by date.
+
+Garmin is preferred for valid training measurements and Garmin physiological metrics. Continuous Amazfit supports gaps/full elapsed behavior. Garmin-grafana is the recovery-analysis source for sleep/HRV/resting HR/stress/Body Battery and Garmin physiology. User reports supply authoritative context for intentional stops, forgotten resumes, hikes and sleep corrections; do not reinterpret these as fatigue.
+
+Flow: watches/Intervals → immutable sources → pair/composite/gap analysis → canonical parents/segments/provenance/issues → normalized ZIP → ChatGPT with recovery/weather/user context → Jay-agreed dated proposal → bridge preview/revision check → sheet write → verified readback.
+
+The Google Sheet is the durable human-readable log. Preserve historical tabs and the ten-row 2026/2027 layout. Activity import owns actual running miles/run details; plans own workouts/planned miles; user reports own strength actuals/shoes/personal notes. Unknown is not zero. Never sync over plans/notes. Weather can support analysis (temperature, humidity/dew point, wind, precipitation, observed/forecast, source/retrieval time) but never replaces a row without agreement. No paid service required or authorized. Weather/recovery ingestion and live bridge imports are outside this preprocessing task.
+
+User-supplied goal context: CIM December 2027, 3:30 or faster/BQ attempt; Surf City February 2027 and Long Beach October 2027. These are supplied goals, not verified race schedules or saved context updates. Preserve trail/hills/commutes/cross-training/pickleball/weather/shoes/recovery/strength/doubles in analysis.
+
+The current bridge contract cannot consume structured canonical data or retire obsolete counting identities safely. Local versioned canonical exports are not an agreed replacement API. Bridge teams must review identity/lifecycle, running-vs-walk counting, unresolved mileage, pace coverage, midnight allocation, provenance and schema transport before implementation. No production deployment follows from these prompts.
+
+Cross-team communication lives in `/Users/jtorres/Workspaces/pnb/training_sheet/CONTEXT.md`; detailed component state stays in each repository's HANDOFF.md. Read both at the start of meaningful sessions. Bridge Codex owns the initial coordination Git setup; the two child repositories remain independent. All four coding assistants may subsequently contribute genuine interface updates. Read the shared file immediately before editing, preserve other entries, include originating team/status/interface/impact/component commit/action required, and commit coordination separately from implementation. Never initialize or take ownership of the parent repository from this component or silently change another team's contract.
