@@ -10,7 +10,7 @@ From this repo use `.venv/bin/python scripts/fetch_garmin_fits.py --check` for c
 
 Check newest FIT by decoded session start, not file modification time. Run source_coverage.py/preprocess_fit.py for cross-source freshness/missing IDs. Common problems: blocked Docker socket, omitted override, unwritable/missing bind, expired auth/rate limits, unavailable InfluxDB, or expecting enabling retention to backfill history. Raw files stay ignored and never enter the routine ZIP. Historical example commands are checkout-supported; no multi-day backfill is claimed as executed.
 
-## Current implementation — accepted foot policy v3, awaiting Claude review
+## Current implementation — accepted foot policy v3, reviewed by Claude; summary fix approved by Codex
 
 Jay confirmed PE's policy: primary training miles are all intentional foot distance, including deliberate standalone recovery walks; cycling remains separate. Valhalla is deferred. Preprocessor Codex is CogE; Claude reviews actual implementation, fixes defects and reruns tests. Bridge Codex owns shared coordination commits. No push or Sheet action is authorized.
 
@@ -24,7 +24,7 @@ Latest real build: 116 FITs, 42 Garmin / 74 Amazfit, 78 workouts, 23 review item
 
 106 tests pass: foot/cycling separation, ambiguous walk intent, persistent explicit resolutions, confirmed partial totals, immutable source rows, neutral gap labels, repaired pace scope, snapshot merge/split/removal/reexport/restoration/date move and deterministic replay. Foot gap speed cap is now 8 m/s (Oct 6 observed max 7.21 stays valid). Upload coverage paths are basename-only; internal review/draft docs are omitted from ZIP. The documented retrieval pipeline remains working; no new Docker operation or backfill in this change.
 
-Review queue: [Preprocessor Claude v3 review](docs/CLAUDE_REVIEW_V3.md). After review/fixes/tests, provide a finalized schema/interface entry to Bridge Codex for CONTEXT.md commit. Do not publish an unreviewed schema as finalized. Parent v2 handoff is already committed (6c65538); v3 has not been published there. No deployment, bridge implementation or Sheets change.
+Preprocessor Claude approved v3 after the summary fix below; Codex reviewed the fix and verified the rebuild. The finalized interface entry is in docs/CONTEXT_HANDOFF_PENDING_REVIEW.md for Bridge Codex to commit to CONTEXT.md. Parent v2 handoff is already committed (6c65538); this team has not published v3 there. No deployment, bridge implementation or Sheets change.
 
 ## Historical v2 implementation — approved by Claude below
 
@@ -106,6 +106,25 @@ Findings:
 
 Left for Codex: commit these doc edits; optionally apply the three Low items with tests; the finalized CONTEXT entry is already committed in the parent repo (6c65538, Bridge Codex owns CONTEXT.md commits). Do not push until Jay says so.
 
+## Preprocessor Claude review — 1445172 (2026-10-07)
+
+Outcome: **approved after one fix, pending Codex review of that fix.** Followed docs/CLAUDE_REVIEW_V3.md. The fix is uncommitted in the working tree (Claude cannot commit; Codex reviews and commits).
+
+Verified:
+- Tests: 106 pass on 1445172; 106 pass with the fix (one test strengthened). Python 3.13, fitdecode 0.11.0.
+- Independent rebuild from data/ inputs is identical to Codex's output: canonical_workouts, daily summary, source_relationships and manifest (same dataset_revision, 78 active, 0 retired). A second run in the same output directory leaves the manifest unchanged. coverage_report/source_inventory differ only because Claude passed fit_filestore alone instead of the default Garmin sources.
+- Real totals match the request: 116 sources, 78 parents, 23 reviews (22 unclassified walks + Sep 7); confirmed foot 220.006487 mi; unclassified walks 22.368742 mi; cycling 25.365615 mi (11 parents, status non_foot, zero foot miles, distance/duration kept). Oct 5 8.612223 mi; Oct 6 2.768227 mi with 501.28 m repaired; Aug 26 6.667108 mi and Sep 18 9,911.45 m + 3,988 m via the accepted use_preferred decisions.
+- Sep 7 delta inspected: the 618.13 m gap is dense (98.5% coverage, max 4.5 m/s), and the 240 s after the gap agrees (Garmin 395.4 m vs Amazfit 393.7 m). The 240 s before the gap has no usable Garmin delta and Amazfit moved only 176.7 m, so two-sided alignment fails. Keeping 13.563986 mi confirmed with the 13.948074 mi hybrid as a candidate is the correct conservative result; accepting the 618 m is a PE/Jay decision.
+- Snapshot: merge/split/removal/reexport/restore/date-move behaviour matches CANONICAL_SNAPSHOT_CONTRACT.md; IDs hash Intervals source keys, so re-exported FIT bytes keep IDs. Import is still correctly marked not safe (bridge apply not implemented).
+- 8 m/s foot cap keeps Oct 6 (max 7.21). ZIP: coverage paths are basenames, internal review/draft docs excluded, no FIT/record/GPS data or personal resolutions.
+
+Findings:
+- **Medium, fixed: weekly/daily modality breakdown went blank whenever an unclassified walk was present.** canonical_summaries summed running/walking/hiking/unknown/other over `training`, which includes unclassified walks whose modality fields are null, so 6 of 9 real weeks had null running_distance_miles even though training_miles was known (v2 populated them). Fix (canonical_workouts.py, canonical_summaries): sum the breakdown over parents that count toward training totals only; unclassified distance stays in unclassified_training_miles. All 8 non-null weeks now satisfy running+walking+hiking+unknown = training_miles. Regression assertions added to `test_confirmed_running_survives_pending_walk_intent`. Canonical workout rows are unchanged.
+- **Note (semantics, as designed):** a day or week containing only unclassified walks has training_miles = null, not 0 (week of Sep 21, and 6 days). This matches the tested "unknown stays null" rule; the bridge should display it as pending, not zero.
+- **Note:** a user-separated activity now defaults to excluded unless its decision sets intentional_training=true (documented in CANONICAL_WORKOUT_MODEL.md:72). No current resolution uses separate_activity.
+
+Left for Codex: review and commit the summary fix and test; then fill the commit in docs/CONTEXT_HANDOFF_PENDING_REVIEW.md, change its status to reviewed, and hand it to Bridge Codex for CONTEXT.md. Do not push.
+
 ## Coordination and next actions
 
 At session start read this handoff/specs and `/Users/jtorres/Workspaces/pnb/training_sheet/CONTEXT.md`. Read CONTEXT.md again immediately before editing it; preserve other teams' entries. Bridge Codex owns initial parent-repository setup, already completed. This team owns only this component. Commit component changes here and cross-team communication separately in the existing coordination repository, referencing the component commit.
@@ -115,3 +134,11 @@ Historical v1 active-window review passed 59 tests. V2 settled record-gap eviden
 Latest shared governance clarification: Jay is product owner; Web ChatGPT is Project Engineer / Domain Lead for requirements and training semantics. This team owns internal software architecture. Surface changes to mileage meaning, run/walk/hike classification, authority/provisional status and source ownership for Project Engineer / Jay review.
 
 Historical review request: [Claude v2 review](docs/CLAUDE_REVIEW_V2.md); current queue is the v3 request above. The exact final cross-team interface entry is prepared in [CONTEXT handoff draft](docs/CONTEXT_HANDOFF_PENDING_REVIEW.md); Claude review of c99e7ff is complete (section above) and the finalized entry is in parent CONTEXT.md, committed by Bridge Codex in parent commit 6c65538. Operational Docker mechanics alone do not change a bridge contract.
+
+## Codex follow-up — Claude v3 summary fix (2026-10-07)
+
+Approved the canonical_summaries fix: modality subtotals describe confirmed contributing parents; pending intent stays in the separate unclassified fields. Reviewed the strengthened regression assertions. Full required suite: 106 tests pass. Fresh data/ rebuild: all eight known weekly totals and 34 known daily totals equal running+walking+hiking+unknown subtotals within CSV rounding tolerance. The Sep 21 week and six walk-only days have null primary mileage (pending), not zero.
+
+Canonical workout rows, snapshot manifest and FIT/CSV/resolution inputs are byte-identical before/after the rebuild. Source rows remain unchanged. There are still 78 active canonical parents and 23 reviews: 22 walk intents and Sep 7's 618.13 m candidate. Sep 7 confirmed 13.563986 mi; candidate hybrid 13.948074 mi. Oct 5/6 results remain unchanged. ZIP CRC/privacy checks pass. No code change beyond Claude's summary fix was necessary.
+
+Reviewed v3 contract is ready for Bridge Codex's coordination publication. Bridge import itself remains blocked until atomic scope replacement, raw-import migration, stale revision protection and transport are implemented/reviewed. Sep 7 and walk intent decisions remain PE/Jay context questions. No push, deployment, Docker operation, Sheet write or parent-repository edit occurred.

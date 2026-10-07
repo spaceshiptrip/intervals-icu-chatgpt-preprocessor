@@ -838,8 +838,11 @@ def canonical_summaries(workouts, weekly=False):
             'cycling_duration_s': sum_complete([w for w in items if w['sport'] == 'cycling'], 'cycling_duration_s') if any(w['sport'] == 'cycling' for w in items) else 0,
             'long_training_outing_miles': max((w['training_distance_miles'] for w in training if w['training_distance_miles'] is not None), default=None),
         }
+        # The breakdown explains confirmed training_miles, so it sums counted parents only;
+        # unclassified walks are reported in unclassified_training_miles instead.
+        counted = [w for w in training if w['counts_toward_training_totals']]
         for field in ('running_distance_m', 'walking_distance_m', 'hiking_distance_m', 'unknown_training_distance_m', 'other_training_distance_m'):
-            training_summary[field.removesuffix('_m') + '_miles'] = sum_complete(training, field) / MILE if training and sum_complete(training, field) is not None else (0 if not training else None)
+            training_summary[field.removesuffix('_m') + '_miles'] = (sum_complete(counted, field) / MILE if sum_complete(counted, field) is not None else None) if counted else (0 if not training else None)
         out.append({'week_starting_local' if weekly else 'date_local': day,
             'counting_basis': 'canonical_confirmed_intentional_foot_training', **training_summary, 'activity_count': len(items), 'canonical_workout_count': len(items),
             'source_segment_count': sum(w['source_segment_count'] for w in items), 'running_miles': None if unresolved else known,

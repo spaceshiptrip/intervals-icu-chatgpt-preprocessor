@@ -53,6 +53,9 @@ class FootTrainingPolicyTests(unittest.TestCase):
         self.assertFalse(summary['training_mileage_complete'])
         self.assertEqual(summary['unclassified_training_workout_count'],1)
         self.assertEqual(summary['unclassified_training_miles'],1000/MILE)
+        self.assertEqual(summary['running_distance_miles'],3000/MILE)
+        self.assertEqual(summary['walking_distance_miles'],0)
+        self.assertEqual(summary['unknown_training_distance_miles'],0)
 
     def test_recovery_walk_and_hike_count_on_foot(self):
         walk=source('walk',name='Deliberate Recovery Walk',distance=1000);walk['sport']='walking'
