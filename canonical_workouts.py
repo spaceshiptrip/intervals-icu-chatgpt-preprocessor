@@ -12,7 +12,7 @@ import math
 import re
 import statistics
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -184,13 +184,26 @@ def aligned_outside_gap(primary, secondary, start, end):
     return all(agreements)
 
 
+def active_window(timeline):
+    """Record-level recording window, trimming short leading/trailing blocks
+    separated by >300 s gaps (e.g. a watch started, then paused immediately)."""
+    if timeline is None or len(timeline.times) < 2: return None
+    blocks = [[timeline.times[0], timeline.times[0]]]
+    for a, b in zip(timeline.times, timeline.times[1:]):
+        if b - a > 300: blocks.append([b, b])
+        else: blocks[-1][1] = b
+    while len(blocks) > 1 and blocks[0][1] - blocks[0][0] < 120: blocks.pop(0)
+    while len(blocks) > 1 and blocks[-1][1] - blocks[-1][0] < 120: blocks.pop()
+    return blocks[0][0], blocks[-1][1]
+
+
 def overlapping(row_a, row_b):
     start = max(dt(row_a['start_utc']), dt(row_b['start_utc']))
     end = min(dt(row_a['end_utc']), dt(row_b['end_utc']))
     return max(0, (end - start).total_seconds())
 
 
-def build_groups(rows, pairs, resolutions):
+def build_groups(rows, pairs, resolutions, timeline=None, active_matches=None):
     groups = defaultdict(list)
     for row in rows: groups[row.get('duplicate_group_id') or row['activity_id']].append(row)
     # Large-distance disagreements can remain low pair candidates. Represent them
@@ -204,6 +217,31 @@ def build_groups(rows, pairs, resolutions):
         # Temporal evidence supports a reviewable relationship, never automatic repair.
         members = groups.pop(a['activity_id']) + groups.pop(b['activity_id'])
         groups[stable_id('candidate_', [source_key(r) for r in members])] = members
+    # Session starts can disagree by far more than the pair limit when one watch was
+    # started and paused at once; Intervals exports keep no timer events, only record
+    # gaps. Ungrouped Garmin/Amazfit singletons whose record-level active windows meet
+    # the high-confidence pair thresholds are the same outing, so count them once.
+    windows = {r['activity_id']: active_window(timeline.get(r['activity_id'])) for r in rows} if timeline else {}
+    singles = [r for r in rows if r['device_family'] in ('Garmin', 'Amazfit') and windows.get(r['activity_id'])
+               and len(groups.get(r['activity_id'], ())) == 1 and finite(r.get('distance_m')) and r['distance_m'] > 0]
+    candidates = []
+    for g in (r for r in singles if r['device_family'] == 'Garmin'):
+        for a in (r for r in singles if r['device_family'] == 'Amazfit' and r['sport'] == g['sport']):
+            (gs, ge), (as_, ae) = windows[g['activity_id']], windows[a['activity_id']]
+            shortest = min(ge - gs, ae - as_)
+            overlap = max(0, min(ge, ae) - max(gs, as_)) / shortest if shortest > 0 else 0
+            pct = 100 * abs(g['distance_m'] - a['distance_m']) / max(g['distance_m'], a['distance_m'])
+            if abs(gs - as_) <= 120 and overlap >= .9 and pct <= 10:
+                candidates.append((abs(gs - as_), pct, g['activity_id'], a['activity_id'], g, a, overlap))
+    for start_difference, pct, _, _, g, a, overlap in sorted(candidates, key=lambda c: c[:4]):
+        if g['activity_id'] not in groups or a['activity_id'] not in groups: continue
+        members = groups.pop(g['activity_id']) + groups.pop(a['activity_id'])
+        groups[stable_id('active_', [source_key(r) for r in members])] = members
+        if active_matches is not None:
+            active_matches[frozenset(r['activity_id'] for r in members)] = {
+                'reason': 'Session starts differ beyond the pair limit; record-level active windows match',
+                'active_start_difference_s': start_difference, 'active_overlap_fraction': overlap, 'distance_difference_pct': pct,
+                'active_windows_utc': {r['activity_id']: [datetime.fromtimestamp(t, timezone.utc).isoformat() for t in windows[r['activity_id']]] for r in members}}
     for session in resolutions.get('session_groups', []):
         if not isinstance(session, dict) or not isinstance(session.get('source_activity_ids'), list):
             raise ValueError('session_groups require source_activity_ids')
@@ -235,7 +273,8 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
     timeline = {key: Timeline(value) for key, value in (timelines or {}).items()}
     workouts = []; segments = []; relationships = []; provenance = []; issues = []; review = []
     applied = set()
-    for members in build_groups(rows, pairs, resolutions):
+    active_matches = {}
+    for members in build_groups(rows, pairs, resolutions, timeline, active_matches):
         members = sorted(members, key=lambda r: (source_key(r), r['activity_id']))
         cw_id = stable_id('cw_', [source_key(r) for r in members])
         primary = choose_primary(members)
@@ -318,6 +357,11 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
             local_issues.append(item)
             return item, decision
 
+        matched = active_matches.get(frozenset(r['activity_id'] for r in members))
+        if matched:
+            item, _ = issue('active_window_duplicate', evidence=matched, auto=True, extra=0)
+            item['resolution'] = 'automatic_duplicate_by_active_window'
+            notes.append('Watches matched on record-level active windows; an early Garmin pause hid the shared start.')
         if source_overlap:
             issue('overlapping_primary_segments', evidence={'reason': 'Preferred source segments overlap; cannot sum physical distance safely'})
             unresolved = True

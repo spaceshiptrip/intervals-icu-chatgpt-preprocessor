@@ -367,5 +367,39 @@ class CanonicalScenarios(unittest.TestCase):
         p = next(p for p in result['field_provenance'] if p['field_name'] == 'aerobic_training_effect')
         self.assertEqual(p['source_activity_ids'], ['g'])
 
+    def early_pause_pair(self, amazfit_distance=3000):
+        # Garmin started, paused at once for 20 min, then resumed when Amazfit started.
+        lead = 1200
+        garmin = source('g', start=START - timedelta(seconds=lead), duration=1200 + lead)
+        garmin['timer_duration_s'] = 1200 + 14
+        amazfit = source('a', device='Amazfit', start=START + timedelta(seconds=20), distance=amazfit_distance)
+        def records(begin, end, step=5):
+            return [{'timestamp_utc': (START + timedelta(seconds=t)).isoformat(), 'distance_m': max(0, t) * 2.5} for t in range(begin, end + 1, step)]
+        timelines = {'g': {'records': records(-lead, -lead + 14, 2) + records(0, 1200), 'timer_events': []},
+                     'a': {'records': records(20, 1220), 'timer_events': []}}
+        return [garmin, amazfit], timelines
+
+    def test_early_garmin_pause_does_not_double_count_dual_watch_run(self):
+        rows, timelines = self.early_pause_pair()
+        self.assertEqual(duplicates(rows), [])  # session starts differ beyond the pair limit
+        original = copy.deepcopy(rows)
+        result = normalize(rows, timelines)
+        self.assertEqual(rows, original)
+        self.assertEqual(len(result['canonical_workouts']), 1)
+        workout = result['canonical_workouts'][0]
+        self.assertEqual(workout['canonical_status'], 'duplicate_resolved')
+        self.assertEqual(workout['primary_source_activity_ids'], ['g'])
+        self.assertEqual(workout['run_distance_m'], 3000)
+        self.assertEqual(canonical_summaries(result['canonical_workouts'])[0]['running_miles'], 3000 / MILE)
+        issue = next(i for i in result['reconstruction_issues'] if i['classification'] == 'active_window_duplicate')
+        self.assertEqual(issue['resolution'], 'automatic_duplicate_by_active_window')
+        self.assertFalse(issue['requires_user_review'])
+
+    def test_active_window_match_still_requires_distance_agreement(self):
+        rows, timelines = self.early_pause_pair(amazfit_distance=4000)
+        result = normalize(rows, timelines)
+        self.assertEqual(len(result['canonical_workouts']), 2)
+        self.assertFalse(any(i['classification'] == 'active_window_duplicate' for i in result['reconstruction_issues']))
+
 
 if __name__ == '__main__': unittest.main()
