@@ -1,6 +1,6 @@
-# Canonical snapshot contract — v3, pending Claude review
+# Canonical snapshot contract — v3, reviewed
 
-This is the preprocessor's local file contract. Bridge application is not implemented or live-verified. Publish the reviewed contract through Bridge Codex after Preprocessor Claude reviews the implementation.
+This is the preprocessor's local file contract. Bridge application is not implemented or live-verified. Preprocessor Claude completed the implementation review; Codex reviewed the summary fix. Bridge Codex publishes the finalized local contract through CONTEXT.md before implementing bridge application.
 
 ## Primary mileage
 

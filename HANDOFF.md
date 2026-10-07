@@ -142,3 +142,5 @@ Approved the canonical_summaries fix: modality subtotals describe confirmed cont
 Canonical workout rows, snapshot manifest and FIT/CSV/resolution inputs are byte-identical before/after the rebuild. Source rows remain unchanged. There are still 78 active canonical parents and 23 reviews: 22 walk intents and Sep 7's 618.13 m candidate. Sep 7 confirmed 13.563986 mi; candidate hybrid 13.948074 mi. Oct 5/6 results remain unchanged. ZIP CRC/privacy checks pass. No code change beyond Claude's summary fix was necessary.
 
 Reviewed v3 contract is ready for Bridge Codex's coordination publication. Bridge import itself remains blocked until atomic scope replacement, raw-import migration, stale revision protection and transport are implemented/reviewed. Sep 7 and walk intent decisions remain PE/Jay context questions. No push, deployment, Docker operation, Sheet write or parent-repository edit occurred.
+
+Reviewed summary-fix commit: b497e15d4b8848cd791c50d58f8494a2088feec0. Final coordination text is in docs/CONTEXT_HANDOFF_PENDING_REVIEW.md for Bridge Codex to append/commit separately.

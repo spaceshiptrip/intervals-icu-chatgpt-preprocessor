@@ -86,7 +86,7 @@ Daily/weekly summaries use local start date and Monday–Sunday America/Los_Ange
 
 `training_miles` / `confirmed_training_miles` sum confirmed portions only. They are partial if training_mileage_complete=false; unknown_training_workout_count and unresolved_training_workout_count explain the limitation. When all intentional distances are unknown, the aggregate stays null. Candidate_additional_training_miles is null if unresolved additional distance cannot be quantified; known_candidate_additional_training_miles still preserves quantified candidates. Training_miles_including_candidates is a labeled provisional value and never replaces official mileage. Candidate distances remain outside totals until evidence or user resolution confirms them.
 
-The v3 implementation awaits Claude review. Local snapshots now carry explicit retirement mappings, but bridge atomic replacement, raw-import migration, transport/display mapping and integration verification remain unimplemented. Its current API is unchanged; do not import the snapshot into an additive upsert store. Bridge teams must not reproduce upstream reconstruction.
+Claude approved v3 after the summary fix reviewed by Codex. Local snapshots now carry explicit retirement mappings, but bridge atomic replacement, raw-import migration, transport/display mapping and integration verification remain unimplemented. Its current API is unchanged; do not import the snapshot into an additive upsert store. Bridge teams must not reproduce upstream reconstruction.
 
 ## Measured validation and remaining limits
 
