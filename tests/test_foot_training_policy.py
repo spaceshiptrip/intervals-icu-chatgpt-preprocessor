@@ -120,3 +120,20 @@ class FootTrainingPolicyTests(unittest.TestCase):
         self.assertEqual(w['training_distance_m'],0)
         self.assertEqual(w['distance_m'],1000)
         self.assertFalse(result['reconstruction_review'])
+
+    def test_historical_mvp_walk_override_does_not_count_future_generic_walk(self):
+        old=source('historic',name='Lunch Walk',distance=1000);old['sport']='walking'
+        future=source('future',name='Lunch Walk',distance=2000,start=START+timedelta(days=1));future['sport']='walking'
+        cid=normalize([old])['canonical_workouts'][0]['canonical_workout_id']
+        policy={'workouts':{cid:{'intentional_training':True,'note':'Temporary MVP historical counting policy; original intent unknown.'}}}
+        result=normalize([old,future],resolutions=policy)
+        by_id={w['canonical_workout_id']:w for w in result['canonical_workouts']}
+        self.assertEqual(by_id[cid]['training_distance_m'],1000)
+        self.assertIn('Temporary MVP historical',by_id[cid]['summary_note'])
+        new=next(w for w in result['canonical_workouts'] if w['canonical_workout_id']!=cid)
+        self.assertIsNone(new['training_distance_m'])
+        self.assertEqual(new['unclassified_training_distance_m'],2000)
+        self.assertEqual(len(result['reconstruction_review']),1)
+        provenance=next(p for p in result['field_provenance'] if p['canonical_workout_id']==cid and p['field_name']=='intentional_training')
+        self.assertEqual(provenance['method'],'user_outing_context')
+        self.assertFalse(provenance['source_activity_ids'])

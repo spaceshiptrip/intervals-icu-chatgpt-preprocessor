@@ -21,3 +21,9 @@ The importer must atomically replace **only its canonical actuals store for this
 The pipeline compares against the prior successful ZIP manifest (loose manifest fallback for initial migration). A shrinking source-key set requires `--allow-source-removals` after coverage verification. Changed scope requires a separate output directory. Never import a partial archive as an authoritative replacement. These guards do not prove an archive has all historic workouts; the producer must verify its intended coverage. A first snapshot supplies no history before the first stored manifest; the consumer still replaces its complete scope rather than relying solely on tombstones.
 
 No bridge implementation, raw-to-canonical migration, transport contract or atomic application verification is supplied by this module. Canonical import remains blocked until those are implemented and reviewed. Local tests verify merges, splits, source removals, source reexports, restored identities, date changes and deterministic reruns, not Google Sheets behavior.
+
+## MVP historical exception
+
+For this historical dataset, all 22 detected foot walks are confirmed for counting by accepted Jay/PE policy through explicit persisted overrides. Their temporary-policy notes retain original walking classification and counting provenance. New generic walks still use the stricter nullable-intent rule described above. All current historical days/weeks now have numeric primary mileage; a future genuinely unclassified walk-only period still means pending rather than zero.
+
+Sep7's confirmed + provisional presentation is supported by v3 and does not block bridge implementation. The reviewed schema/field mapping is ready; actual imports still require the bridge's atomic replacement, retirement, migration and revision safety implementation/review. Do not wait for retrospective walk classification or historical perfection.

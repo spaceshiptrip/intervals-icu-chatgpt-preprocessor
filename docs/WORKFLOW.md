@@ -23,3 +23,7 @@ Accepted 2026-10-06 mileage requirement: all intentional outing distance counts 
 ## Accepted Jay/PE foot-mileage decision — v3 reviewed implementation
 
 Primary mileage is intentional foot travel; cycling is separate cross-training. Intentional standalone recovery walks count; generic walks with unclear intent remain unclassified/reviewable. Confirmed portions count officially; candidate gaps and unclassified intent do not. Preprocessor v3 implements a complete scoped canonical replacement snapshot with explicit retirement lineage. Claude approved it after a summary fix reviewed by Codex; Bridge Codex can publish and review the finalized local contract. Bridge application and migration remain separate work; Valhalla stays deferred.
+
+## MVP historical-walk exception
+
+Jay/PE accepted the 22 existing autodetected foot walks for historical mileage, using explicit local overrides and temporary-policy provenance. Future generic walk intent defaults remain stricter. Sep7 stays confirmed plus provisional and is not an integration blocker. V3 code/schema is already reviewed; this policy adjustment changes resolutions/docs, not architecture. Bridge Codex publishes the revised handoff and continues its importer safety work; TEST validation remains separately authorized. Valhalla stays deferred.
