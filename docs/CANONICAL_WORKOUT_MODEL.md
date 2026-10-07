@@ -1,112 +1,97 @@
-# Canonical workout model — local schema v1
+# Canonical workout model — local schema v2
 
-## Extension and compatibility decisions (recorded before implementation)
+Read HANDOFF.md and the shared parent CONTEXT.md before changing this model. Jay is product owner; Web ChatGPT is Project Engineer / Domain Lead. The preprocessor team owns implementation. The 2026-10-06 accepted mileage requirements supersede the earlier running-only training-volume policy.
 
-Keep the existing parser, pair/composite matcher and all source CSVs. Add `canonical_workouts.py`, consuming sources + matched relationships + in-memory timelines/events. It returns canonical parents, meaningful segments, source relationships, field provenance and review issues. No source values/flags are rewritten by reconstruction. Existing source counting flags describe the earlier preferred-source view; new summaries use canonical parents only. Preserve an explicit legacy source-summary helper for code compatibility, not as the authoritative training total.
+## Architecture and compatibility
 
-The schema version is `canonical-workout-1`. This is a local file contract, not `pp-bridge-1`, not a deployed bridge contract. Canonical IDs use sorted stable Intervals IDs (fallback filename) so re-encoding the same activity changes the content revision but not counting identity. Changing group membership changes the parent identity. There is no false promise that a new canonical ID retires an old imported ID: bridge import remains blocked pending explicit supersession/reconciliation. A dataset manifest records current membership/revision.
+`preprocess_fit.py` decodes FITs, preserves source metrics, and performs existing pair/composite matching. `canonical_workouts.py` consumes matched sources and local in-memory timelines, producing parents, segments, source relationships, field provenance, reconstruction issues and review questions. No reconstruction changes source rows. Daily and weekly totals count parents once; segments and comparison watches never add a second contribution.
 
-Conservative reconstruction: preserve measured preferred-source distance for resolved duplicate/composite cases. Distance disagreement alone creates review, not repair. Repair requires actual continuous cumulative-distance records, dense sampling, aligned valid portions on both sides, an explicit Garmin timer pause or contextual confirmation, and sustained secondary motion with cadence/speed evidence. Sparse data, reset distances, weak alignment, device dropout or ambiguous walking remain reviewable. Never fill distance by interpolation over absent records. Record-gap detection is not proof of a timer pause.
+The version is `canonical-workout-2`. Existing source CSVs, comparison files, `distance_m`, `run_distance_m`, their mile equivalents and legacy `running_miles` summary fields are retained. They have not been renamed into training totals. New additive fields distinguish training volume and modality. The logical row schema is [CANONICAL_SCHEMA.json](CANONICAL_SCHEMA.json); CSV blanks represent null, booleans are True/False, and object/array cells are JSON. Numeric CSV values use six decimal places. The [synthetic example](examples/canonical_example.json) is test data, not the actual October 6 workout.
 
-Run/trail portions preserve their FIT sport identity; inferred warmup/workout/cooldown roles require explicit names or user decisions. Close time alone is insufficient to merge independent runs. A shared continuous counterpart or explicit session resolution permits grouped segments. Walking/social movement is physical distance but is not silently added to running mileage. Source-coded hiking inside a run remains documented as source classification pending bridge-team policy; ambiguous gap walking prompts review.
+Canonical IDs derive from sorted Intervals source identities (filename fallback). Identical membership retains its ID; changed content/policy changes its revision. Regrouping changes IDs. Retirement/supersession is **not implemented**. The manifest is a current snapshot and cannot safely be sent to the current bridge upsert importer. No bridge API, deployment or sheet write is included here.
 
-Whole-workout elapsed time may come from the continuous source. Garmin timer/HR/elevation/training effect remain supported by their measured portions; independent pace stores its own covered distance/time. Do not divide full reconstructed distance by partial timer. Genuine whole-workout active pace is blank when coverage is incomplete. Actual stationary evidence supports an estimated stopped duration, not a fatigue conclusion.
+## Accepted mileage semantics
 
-Unresolved canonical distance/run distance is blank. Preserve `provisional_distance_m`, provisional run mileage and candidate additional mileage separately. Daily/weekly `running_miles` is blank if any running contribution is unresolved; known/resolved and provisional subtotals are explicit. No ambiguous workout is silently counted twice. Review can be deterministic JSON input, rather than an interactive session. Imports never overwrite that local file.
+All intentional distance within a training outing counts toward training mileage: running, trail, hiking, walking, warmup/workout/cooldown and movement between meaningful segments. A mixture of exercise and social interaction during that outing does not itself exclude measured movement. Modality matters for analysis, not whether intentional distance counts.
 
-Detailed schemas, resolution examples, measured validation and limits will be appended after implementation. October 6 reported weather/hydration/forgotten resume is context only; the supplied archive currently ends October 5.
+Recorded workout activities are treated as intentional training by default. The processor cannot identify an unrelated errand or office movement merely from a watch trace. Persist `intentional_training: false` on its canonical workout to exclude that outing from training totals without deleting its physical/source data. A user-separated incidental gap becomes a separate parent that can likewise be excluded. Do not exclude ambiguous modality from an otherwise strongly supported outing.
 
-## Implemented output contract
+All intentional source sports contribute to `training_miles`; sport-specific running/cycling columns remain available. Cycling and other known non-foot sports are categorized under `other_training_distance_m`, not running. This broad aggregate is explicit; analysis can select sport-specific volume without changing mileage evidence. Multisport sub-session distances are not invented where the existing parser provides only a mixed parent total.
 
-Logical row schema: [CANONICAL_SCHEMA.json](CANONICAL_SCHEMA.json). Non-GPS synthetic example with provenance: [examples/canonical_example.json](examples/canonical_example.json). The JSON schema describes typed logical rows; the routine data file is CSV: blanks are null, booleans are `True`/`False`, array/object cells are JSON, and numeric output is rounded to six decimal places. The example is explicitly synthetic, not the measured October 6 run.
-
-| File | Entity / counting rule |
+| Parent field | Meaning |
 |---|---|
-| activities_master.csv | Immutable source metrics plus existing source-matcher annotations; these flags are not canonical training totals |
-| canonical_workouts.csv | One counting parent per resolved physical workout/session, or one provisional parent for an ambiguous overlap |
-| workout_segments.csv | Source segments and recovered gap segments, with parent/session ID, role, role evidence, timestamps and distance; never counted separately |
-| source_relationships.csv | Links sources to parents; a user-separated gap can reuse a continuous source over a different interval |
-| field_provenance.csv | Selected/derived measurement, value/unit, source IDs, method, confidence, coverage scope and time bounds |
-| reconstruction_issues.csv | All detected gaps/disagreements, including automatically handled or user-resolved cases |
-| reconstruction_review.csv | Only cases still requiring context, with stable issue ID, candidate evidence and question |
-| canonical_dataset_manifest.json | Deterministic dataset revision, active parent identities/revisions and source memberships; snapshot, not a retirement API |
+| training_distance_m / training_distance_miles | Official confirmed distance of intentional training, including confirmed portions when the full outing is unresolved |
+| training_distance_complete | Whether the full intentional distance is settled; false does not discard the confirmed portion |
+| training_distance_status | confirmed, confirmed_partial, unknown, or excluded |
+| training_distance_requires_user_review | Full training distance remains unresolved |
+| candidate_training_distance_m | Candidate additional distance, excluded from official mileage; null if an unresolved amount cannot be quantified |
+| provisional_training_distance_m | Confirmed plus quantified candidates, explicitly not official; null if any required amount is unknown |
+| total_physical_outing_distance_m / total_physical_outing_distance_miles | Whole defensible physical outing distance; null while unresolved; retained even for an excluded incidental outing |
+| running_distance_m | Confirmed source-running portions plus strongly running-supported/user-classified repairs |
+| walking_distance_m / hiking_distance_m | Source-coded or user-confirmed walking/hiking portions |
+| unknown_training_distance_m | Confirmed training movement whose modality is not supported |
+| other_training_distance_m | Confirmed known non-running/walking/hiking sport distance, such as cycling |
+| modality_basis | Classification uses FIT sport labels and explicit decisions, not a fabricated per-step gait measurement |
 
-Core parent fields:
-- `distance_m` / `distance_miles`: physical outing distance, null when unresolved.
-- `run_distance_m` / `run_distance_miles`: mileage counted as training running; separate from physical distance.
-- `trail_distance_m` / `trail_distance_miles`: known running-coded trail subset. Unknown gap terrain is not invented.
-- `provisional_distance_m`, `provisional_run_distance_m`, `candidate_additional_distance_m`: explicit baseline and review candidates, never implicitly accepted.
-- `recovered_distance_m`, `non_running_recovered_distance_m`: accepted secondary gap movement and the non-running part.
-- `recorded_active_distance_m`, `recorded_active_duration_s`, `recorded_active_pace_min_mile`: preferred source portions and their matching timer/distance denominator.
-- `active_pace_min_mile`: blank after distance repair if whole-workout active time is unsupported. The recorded Garmin pace remains available separately. Composite source-segment pace is labeled `active_pace_scope=recorded_segments`.
-- `elapsed_duration_s`, UTC/local endpoints and `elapsed_pace_min_mile`: the full selected continuous timeline when it spans the preferred sources, otherwise their time union.
-- `estimated_stationary_duration_s`: observed gap sample durations below 0.2 m/s, not all possible stopped time.
-- HR, ascent/descent, training effect/load: retained from supported preferred recorded portions. Garmin training effect is Garmin-only; multiple native session effects use a labeled maximum, not a fictitious sum.
-- `canonical_status`, `confidence`, `requires_user_review`, `mileage_requires_user_review`, `physical_distance_requires_user_review`: whole-workout state versus independently resolved running mileage.
-- `*_source_activity_ids`: convenience measurement-source lists; full methods and coverage remain in provenance.
+The modality breakdown sums to confirmed training distance when available. Missing measurements remain null. Explicitly excluded intentional_training=false yields a known zero training contribution while preserving physical distance. A running-coded activity can contain hiking; its source-running estimate is not proof every step was running. There is no automatic gait split of entire sessions. New gap movement with inadequate gait evidence stays unknown training distance. Users can supply modality overrides with explicit provenance, subject to the breakdown not exceeding confirmed training distance.
 
-Provenance time intervals are bounding intervals, with explicit `coverage_scope`; they do not assert that every second or every physiological sample in that interval was observed. `recorded_active_*` gives the measured distance/timer denominator. Physiological summaries cannot determine HR drift or fatigue within an unrecorded segment. None of the code infers fatigue from a stop, slow pace, hiking or a device mistake.
+Legacy `run_distance_m` can be null while unresolved running coverage remains; new `running_distance_m` retains known source-running portions. Legacy `distance_m` aliases whole physical distance and stays null for an unresolved full outing. Neither is a substitute for the new confirmed training field.
 
-## Evidence rules and review thresholds
+## Gap evidence and automatic reconstruction
 
-Timer pauses come from FIT timer stop/restart events. Record-only gaps exceed max(60 seconds, five times median source sampling interval). They are labeled dropout/unknown, not a proven forgotten resume. Secondary gap evidence needs actual cumulative-distance samples near both bounds (15-second tolerance), at least three points, monotonic nonnegative distances, max 30-second sample spacing, and >=90% sampled temporal coverage. There is no interpolation over absent data or distance resets.
+FIT timer events remain useful but are not required. Record gaps exceed max(60 seconds, five times median source spacing). Their neutral issue label is `recording_gap`, not a claim of hardware failure or forgotten resume. Legacy device_dropout issue IDs are preserved so existing decisions still apply. Explicit timer pauses may use probable_forgotten_resume, but reconstruction proves measured missing motion rather than motive.
 
-Two-sided alignment compares measured distance increments in the 240-second moving windows before/after the gap: at least 50 m each, agreement within 15%, timestamp endpoint tolerance 20 seconds. This is temporal/distance alignment, not a claimed GPS route match. Coordinates remain local and are not required by this rule.
+Secondary evidence requires actual cumulative-distance samples at both bounds within 15 seconds, >=3 points, monotonic nonnegative distance, <=30-second sample gaps and >=90% temporal coverage. No interpolation fills missing samples or distance resets. Primary distance at gap bounds must also be available. Recoverable distance is the secondary measured increment minus distance already captured by Garmin.
 
-Automatic moving-pause repair additionally requires an explicit resumed timer pause, measured primary distance at gap bounds, >=80% secondary sample intervals with speed >=1.5 m/s and native cadence >=60 rpm (available HR must be >=40), missing distance >=max(50 m, 2% of preferred distance), and consistency with the overall distance difference. It is a conservative heuristic for running-coded exercise, not a gait diagnosis or proof of intent. Missing physical distance is secondary cumulative gap distance minus already recorded primary gap distance; valid Garmin distance remains intact.
+Automatic internal-gap repair requires all of:
+- A strongly supported same-workout relationship: a high source pair/composite, active-window duplicate, or matching starts within 120 seconds and >=90% shorter-window overlap reinforced by two-sided distance alignment.
+- The continuous counterpart spans the gap inside the primary recording; primary segments do not overlap and the gap is <=30 minutes.
+- Two-sided alignment: measured increments in the 240-second windows before and after the gap, >=50 m in each, agreement within 15%, endpoint tolerance 20 seconds. This is timeline/distance continuity, not a claimed GPS route match.
+- Missing movement >=20 m and >=10 seconds of secondary motion at >=0.5 m/s; per-sample distance speed <=12 m/s. Session distance discrepancy must reconcile with the candidate (>=0.5 times missing; <=1.5 times missing plus max(100 m, 3% of baseline)).
 
-A stationary gap has secondary distance <=max(15 m, 0.05 m/s × gap duration); no distance is added. `intentional_stationary_pause` describes observed stationary behavior, not independently proven intent. Gaps outside a secondary timeline, or unsupported gaps when both session distances agree within max(150 m, 5%), do not establish missing mileage. They remain in the issue report as `no_supported_missing_distance`. Small measured gap discrepancies <50 m stay below the review threshold. Sustained significant movement in record-only gaps remains reviewable even when alignment is strong.
+These thresholds permit movement during stops without requiring the entire gap to be running. A running fraction >=80% based on speed >=1.5 m/s, cadence >=60 native FIT rpm and available HR >=40 supports a running-coded repair. Otherwise confirmed movement contributes to unknown training modality, without reducing training mileage.
 
-Whole-distance differences >max(150 m, 5%) without sufficient localized evidence require review. Multiple gap candidates are not added twice to physical totals. Unknown movement between source segments remains distinguishable from the recorded running segments. Stationary/social/walking context comes from evidence and/or Jay; the code does not turn it into a fatigue assessment.
+A stationary/noise interval has secondary distance <=max(15 m, gap seconds ×0.05); add no phantom distance. The policy intentionally does not equate GPS-distance jitter with confirmed movement. Unsupported gaps outside the counterpart or agreeing sessions retain a no_supported_missing_distance issue. Sparse samples, weak alignment, implausible speeds, inconsistent total distance, or a plausible separate-workout interval remain reviewable.
 
-Active-window duplicate matching: a watch started and immediately paused gives session starts too far apart for the source pair matcher. Before canonical grouping, each timeline's active window drops leading/trailing record blocks shorter than 120 s that are separated from the rest by gaps over 300 s. Otherwise-ungrouped Garmin/Amazfit singletons of the same sport whose active windows start within 120 s, overlap at least 90% of the shorter window and agree on distance within 10% form one `duplicate_resolved` parent. The evidence is recorded as an automatic `active_window_duplicate` issue. Source matching flags are not rewritten.
+Short boundaries between sequential primary segments are inside a supported continuous outing. Dense measured motion >=5 m and >=5 seconds, plausible speed and <=5-minute boundary can be included when session distances agree within max(150 m, 5%). Smaller boundaries under 50 m remain below the review threshold; observed movement can be recovered, while stationary/noise samples are not added. Larger unsupported or unsampled boundaries go to review. Measured boundary movement defaults to unknown modality unless Jay classifies it.
 
-## Persistent user decisions
+Total distance disagreement alone never causes repair. Candidate whole-session distance and localized gap candidates are combined conservatively using the larger amount, not added twice. All user decisions override automation. A use_preferred/stationary decision retains the preferred distance; unsure preserves the candidate.
 
-By default the script reads `data/user_resolutions.json` if present. Use `--resolutions PATH` to select another file; an explicitly missing path is an error. Start from [config/user_resolutions.example.json](../config/user_resolutions.example.json). Imports never create or overwrite the decision input. The source ZIP, mapping and resolutions stay in ignored `data/`; an empty template is included in the upload ZIP, while applied choices/notes are represented in canonical outputs/provenance.
+## Pace, physiology and provenance
 
-Example (replace placeholders with actual review/workout/Intervals IDs):
+Distance can use Garmin valid portions plus Amazfit measured gaps; elapsed time can use the continuous timeline. Garmin HR, elevation and device-specific training effect retain their measurement source. Native session training effects across segments use a labeled maximum, not an invented sum. Elevation provenance remains unknown where correction history is unavailable.
 
+`recorded_active_distance_m`, `recorded_active_duration_s` and `recorded_active_pace_min_mile` describe measured preferred portions using matching denominators. After repair, whole-workout timer/moving duration and active pace remain null if the missing active denominator is unsupported. Never divide the full reconstructed distance by incomplete Garmin timer time. Elapsed pace uses full supported elapsed time/distance and may include stops. Observed stationary-duration estimates cover only analyzed samples; no fatigue or intent is inferred.
+
+`field_provenance.csv` records source IDs, method, confidence, coverage scope and time intervals for selected/derived fields. Bounding intervals do not assert every second was measured. User-reported modality values use user provenance, not falsely attributed watch measurements. Raw lat/lon stays local; routine exports contain no GPS records. Detail export remains opt-in and is excluded from the normal ZIP.
+
+## Persistent resolutions
+
+The default optional input is ignored `data/user_resolutions.json`; an explicit `--resolutions PATH` must exist. Imports never overwrite it or include personal resolution files in Git/the ZIP. The ZIP includes an empty config template and the applied decisions in provenance/notes.
+
+Issue options: include_running, include_walking, include_hiking, include_training (unknown modality), stationary_stop, use_preferred, use_secondary, separate_activity, unsure. Including a gap requires measured evidence; a decision cannot fabricate absent samples. Separate activity requires sport running/walking/hiking/cycling/other and produces its own parent counted once. Full-source selection uses the measured source with explicit user provenance.
+
+Workout overrides support distance_source_activity_id, numeric distance_m/run_distance_m/trail_distance_m, walking_distance_m/hiking_distance_m, non-overlapping run_distance_source_activity_ids, segment_roles, intentional_training and note. A physical total override alone does not assert a running gait; supply supported modality values separately. Negative or inconsistent breakdowns fail validation. Session groups can link intentional splits and roles without a second watch; close time alone does not merge independent doubles. Missing historical decision IDs are reported, not deleted.
+
+Example exclusion (replace the ID):
 ```json
-{
-  "schema_version": 1,
-  "issues": {
-    "ISSUE_ID": {"decision": "include_running", "note": "Forgot to resume after water stop"}
-  },
-  "workouts": {
-    "CANONICAL_ID": {
-      "run_distance_source_activity_ids": ["INTERVALS_SEGMENT_ID_1", "INTERVALS_SEGMENT_ID_2"],
-      "segment_roles": {"INTERVALS_SEGMENT_ID_1": "warmup"},
-      "note": "Running mileage is the confirmed recorded Garmin segments"
-    }
-  },
-  "session_groups": []
-}
+{"schema_version":1,"issues":{},"workouts":{"CANONICAL_ID":{"intentional_training":false,"note":"Unrelated store errand"}},"session_groups":[]}
 ```
 
-Issue decisions: `include_running`, `include_walking`, `stationary_stop`, `use_preferred`, `use_secondary`, `separate_activity`, `unsure`. Included movement must have measured secondary evidence; a decision cannot invent missing samples. `use_secondary` selects its measured full-source distance with explicit user provenance. `separate_activity` also requires `sport` (`running`, `walking`, `cycling`, `hiking`, `other`); measured gap movement gets its own counting parent and is excluded from the original parent's running distance. `unsure` keeps the case unresolved. Jay's decision overrides automatic classification.
+## Summaries and bridge mapping
 
-Workout overrides can choose `distance_source_activity_id`, supply explicit user-reported `distance_m` / `run_distance_m` / `trail_distance_m`, select non-overlapping recorded running sources with `run_distance_source_activity_ids`, set supported segment roles, or add a note. Running-source confirmation can settle running mileage while physical/social movement remains unresolved. Numeric physical-distance changes do not automatically assert that the extra movement was running: give `run_distance_m` separately when needed. Trail cannot exceed running, and running cannot exceed a confirmed physical total.
+Daily/weekly summaries use local start date and Monday–Sunday America/Los_Angeles weeks. Parents crossing midnight remain wholly allocated to their start date. `activity_count` is physical-parent count; `training_workout_count` excludes incidental outings; source/segment counts remain explanatory.
 
-Explicit `session_groups` with `source_activity_ids` and optional `segment_roles` can join intentional splits without a continuous companion. Time alone never joins same-day runs. Supported roles: warmup/workout/cooldown/easy_run/trail/commute/walk/unknown. Names such as Warmup, Track workout, Cooldown and explicit FIT trail/walking classifications support roles; otherwise role remains unknown. Conflicting or missing source references fail validation; unmatched historical issue/workout decision IDs are preserved and reported, not discarded.
+**Bridge weekly training volume should consume `weekly_training_summary.csv.training_miles`, or sum canonical `training_distance_miles` once per active parent.** Informational modality columns are running_distance_miles, walking_distance_miles, hiking_distance_miles, unknown_training_distance_miles and other_training_distance_miles. Legacy running_miles remains source-running-only and must not populate the broader training-volume total.
 
-## Canonical summaries and bridge reconciliation
+`training_miles` / `confirmed_training_miles` sum confirmed portions only. They are partial if training_mileage_complete=false; unknown_training_workout_count and unresolved_training_workout_count explain the limitation. When all intentional distances are unknown, the aggregate stays null. Candidate_additional_training_miles is null if unresolved additional distance cannot be quantified; known_candidate_additional_training_miles still preserves quantified candidates. Training_miles_including_candidates is a labeled provisional value and never replaces official mileage. Candidate distances remain outside totals until evidence or user resolution confirms them.
 
-Daily/weekly summaries count parents only. `activity_count` now means physical-workout parent count; `source_segment_count` and `workout_segment_count` retain the other counts. Long-run distance now describes a parent outing rather than its largest source segment. Whole parents are assigned to the Los Angeles start date and Monday-start week, including midnight crossings; alternative midnight allocation awaits agreement.
+The bridge is still waiting on Claude's v2 review, agreed transport/display mapping, ID retirement/raw-import migration and integration verification. Its current API is unchanged. Regrouping can change canonical IDs; there is no superseded status or retirement mapping. Do not begin canonical import into the current upsert store. Bridge teams must not reproduce upstream reconstruction.
 
-`running_miles` is null if any running contribution is unresolved. `known_running_miles`, `provisional_running_miles`, `running_miles_including_provisional`, `candidate_additional_miles`, `unresolved_workout_count` and `mileage_complete` explain completeness. A running-specific user decision can keep running miles known while `unresolved_physical_distance_count` and `requires_user_review` identify unknown non-running physical movement. Non-running unknown distance never becomes an implicit running zero. Native load/ascent/time sums describe available measurements; HR is weighted only by observed preferred timer portions. Missing full timer durations after repair remain null.
+## Measured validation and remaining limits
 
-The local schema deliberately separates physical/running distance and complete/provisional mileage, supporting either future Jay-approved bridge policy. It does not silently implement Bridge Claude's proposed `pp-bridge-1` field names. The bridge can eventually map confirmed daily running totals to `actual_run_miles`, and canonical notes/ordered segments to `run_details`, but must first agree on:
-1. source-coded running versus hiking/social-walk policy;
-2. null daily totals versus separately labeled provisional presentation;
-3. canonical lifecycle/supersession and raw-import transition;
-4. structured metric coverage/provenance and versioned transport;
-5. midnight allocation and independent pace denominators.
+The original validation archive had 97 files through October 5; fresh Intervals FIT/CSV inputs now each contain 116 activities from August 11 through October 6. Final counts are recorded in HANDOFF.md and coverage_report.json. The v2 run confirms October 5 Garmin distance 13,538.86 m plus 321.17 m measured secondary movement (287.45 m main gap, 26.28 m smaller gap, 7.44 m split boundary): **13,860.03 m / 8.612223 training miles**. Source-running remains **8.412658 miles**; the 321.17 m is unknown modality, not automatically walking or running. This hybrid estimate is about 21 m above Amazfit's 13,839 m full-source total, within measurement tolerance, and explicitly retains its reconstruction method. Stationary/noise intervals are not added.
 
-The current bridge API is unchanged. Do not import these parent IDs into today's upsert store: regrouping changes memberships/IDs, and a current manifest does not retire formerly imported IDs. Exact-input reruns are deterministic, including resolutions; changed FIT encoding retains physical identity when Intervals IDs/membership stay stable but changes revisions. Grouping changes require downstream reconciliation. No deployment or sheet write was performed.
+Three review issues remain: Aug 26 conflicting distance, Sep 7 weak two-sided alignment with a measured 618.13 m candidate, and Sep 18 an unsampled split boundary. Confirmed portions remain in official training totals while candidate/unknown additions remain separate. October 6 is now validated from real FITs: Garmin 3,953.75 m plus a measured 501.28 m deficit (502.63 secondary meters minus 1.35 primary meters already captured) gives **4,455.03 m / 2.768227 training miles**. The 226-second interval has dense samples, two-sided alignment and 94.25% running-evidence fraction. Garmin original FIT independently records the matching stop/restart bounds. Ama full distance is 4,466 m, about 11 m above the hybrid reconstruction. Recorded Garmin pace/HR retain their sources; the whole running-coded session does not prove where hiking occurred.
 
-## Measured archive and example limits
-
-The available archive has 97 source files through October 5, 2026, 25 standalone accepted pairs, four composites and 62 canonical parents (two dual-watch runs, Aug 23 and Aug 27, are joined by active-window matching). No timer events survive this regenerated export, so no high-confidence automatic forgotten-resume repair is claimed on it. October 5 retains the earlier explicitly requested 8.412658 running miles through a persisted confirmed Garmin-source decision; its extra physical movement remains reviewable. September 29 retains 2.160936 running miles, with the late elapsed-window discrepancy not interpreted as an added-distance hole.
-
-The synthetic example repairs 750 m measured by the secondary device: 2250 m recorded Garmin + 750 m gap = 3000 m physical/running distance, while keeping Garmin HR/elevation and its recorded-portion pace. Tests also recover an 810 m (~0.5 mi) moving gap. Full-workout active pace stays unknown when its complete active denominator is unavailable. This is proof of algorithm behavior, not measurement of Jay's October 6 run. That reported hot/hilly hydration-pack run awaits updated FIT evidence.
+The synthetic example demonstrates a 750 m recovered running gap (2,250→3,000 m), independently sourced pace/HR/elevation, and no GPS exposure. Additional tests cover no timer events, unknown modality, walking/hiking volume, stationary gaps, partial confirmed totals, exclusion, inconsistent totals, sparse coverage, candidate double-count prevention, deterministic reruns and schema compatibility.

@@ -19,6 +19,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 import fitdecode
 from canonical_workouts import SCHEMA_VERSION, EXPORT_HEADERS, canonical_summaries, load_resolutions, reconstruct, stable_id
+from source_coverage import coverage_report, print_coverage, default_garmin_sources
 
 LOCAL = ZoneInfo('America/Los_Angeles')
 MILE = 1609.344
@@ -481,6 +482,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',type=Path,required=True); parser.add_argument('--output',type=Path,default=Path('output'))
     parser.add_argument('--activities-csv',type=Path); parser.add_argument('--device-map',type=Path)
+    parser.add_argument('--garmin-source',type=Path,action='append',help='Local Garmin FIT directory/ZIP, or index-only export; repeatable. Defaults to known local garmin-grafana activity exports when available.')
     parser.add_argument('--archive',action='store_true',help='Also save a timestamped ZIP copy in OUTPUT/archive after updating the stable ZIP')
     parser.add_argument('--resolutions',type=Path,help='User-owned canonical decisions (default: data/user_resolutions.json if present; input is read only)')
     parser.add_argument('--include-records',action='store_true'); parser.add_argument('--activity-id',action='append',default=[],help='Internal or Intervals activity ID; repeatable. Produces selected detailed records.')
@@ -491,10 +493,11 @@ def main():
     overrides={r['source_filename']:r for r in read_csv(args.device_map) if r.get('source_filename')}
     if args.resolutions and not args.resolutions.exists(): parser.error('Explicit resolutions file does not exist')
     resolutions=load_resolutions(args.resolutions or Path('data/user_resolutions.json'))
-    rows=[]; laps=[]; records=[]; quality=[]; found=parsed=0; mapping=[]; timelines={}
+    rows=[]; laps=[]; records=[]; quality=[]; found=parsed=0; mapping=[]; timelines={}; input_members=[]
     def q(category,metric,value,aid=None,detail=None): quality.append({'category':category,'metric':metric,'value':value,'activity_id':aid,'detail':detail})
     for name,content in sources(args.input):
         found+=1; iid=Path(name).name.split('_',1)[0]
+        input_members.append({'source_member':name,'sha256':hashlib.sha256(content).hexdigest()})
         try:
             row,ls,rs,notes,units=parse(name,content,metadata.get(iid,{}),overrides.get(name,{}),timeline_sink=timelines); parsed+=1
             if row is None:
@@ -520,6 +523,10 @@ def main():
     pairs=duplicates(rows); composite_groups=composite_duplicates(rows,pairs)
     comparison=comparisons(rows,pairs)+composite_comparisons(rows,composite_groups)
     canonical=reconstruct(rows,pairs,composite_groups,timelines,resolutions)
+    coverage,inventory_rows=coverage_report(args.input,args.activities_csv,args.garmin_source if args.garmin_source is not None else default_garmin_sources(),rows,found,sum(x['category']=='failed' for x in quality))
+    coverage['fit_members']=input_members
+    coverage['auxiliary_inputs']=[{'role':role,'source_path':str(path.resolve()),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()} for role,path in [('device_map',args.device_map),('user_resolutions',args.resolutions or Path('data/user_resolutions.json'))] if path and path.exists()]
+    print_coverage(coverage,canonical['canonical_workouts'])
     q('metadata','activities_csv_rows',len(metadata)); q('metadata','activities_csv_without_fit',len(set(metadata)-{r['intervals_activity_id'] for r in rows})); q('inventory','fit_files_found',found); q('inventory','fit_files_parsed',parsed); q('inventory','activity_rows',len(rows)); q('inventory','failed_files',sum(x['category']=='failed' for x in quality))
     for field in ('device_family','sport'):
         for value,count in Counter(r[field] for r in rows).items(): q('counts_by_'+field,str(value),count)
@@ -548,21 +555,27 @@ def main():
              'data_quality.csv':(quality,('category','metric','value','activity_id','detail'))}
     for key in ('canonical_workouts','workout_segments','source_relationships','field_provenance','reconstruction_issues','reconstruction_review'):
         exports[key+'.csv']=(canonical[key],EXPORT_HEADERS[key])
+    exports['source_inventory.csv']=(inventory_rows,('source_kind','source_filename','activity_key','start_utc','sport','distance_m'))
     for name,(data,base) in exports.items(): write_csv(args.output/name,data,base)
     write_csv(args.output/'device_mapping_template.csv',mapping,('source_filename','device_family','elevation_source'))
     if args.include_records or args.activity_id: write_csv(args.output/'activity_records.csv',records,('activity_id','timestamp_utc','latitude_deg','longitude_deg'))
-    manifest={'schema_version':SCHEMA_VERSION,'timezone':'America/Los_Angeles','counting_basis':'canonical_parents_only',
+    manifest={'schema_version':SCHEMA_VERSION,'timezone':'America/Los_Angeles','counting_basis':'canonical_confirmed_intentional_training',
+        'training_mileage_field':'training_distance_miles', 'summary_training_mileage_field':'training_miles',
+        'modality_fields':['running_distance_m','walking_distance_m','hiking_distance_m','unknown_training_distance_m','other_training_distance_m'],
+        'candidate_policy':'excluded_from_official_totals; confirmed_partial_mileage_retained',
         'units':{'distance':'meters','display_distance':'miles','duration':'seconds','pace':'minutes/mile','elevation':'meters','heart_rate':'bpm'},
         'calendar_allocation':'whole_workout_by_local_start_date','lifecycle':'current_snapshot_only; bridge supersession/reconciliation not implemented',
         'source_activity_count':len(rows),'canonical_workout_count':len(canonical['canonical_workouts']),
         'workouts':[{'canonical_workout_id':w['canonical_workout_id'],'revision':w['revision'],'source_activity_ids':w['source_activity_ids']} for w in canonical['canonical_workouts']]}
     manifest['dataset_revision']=stable_id('dataset_', [json.dumps(manifest,sort_keys=True)])
+    coverage['newest_canonical_start_local']=max((w['start_local'] for w in canonical['canonical_workouts']),default=None)
+    (args.output/'coverage_report.json').write_text(json.dumps(coverage,indent=2,sort_keys=True)+'\n')
     (args.output/'canonical_dataset_manifest.json').write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
     # Explicit allowlist prevents a previous detailed export entering the upload ZIP.
     root=Path(__file__).resolve().parent
-    documentation=['README.md','HANDOFF.md','docs/WORKFLOW.md','docs/CANONICAL_WORKOUT_MODEL.md','docs/CANONICAL_SCHEMA.json','docs/examples/canonical_example.json','config/user_resolutions.example.json']
-    package_names=list(exports)+['canonical_dataset_manifest.json','requirements.txt','preprocess_fit.py','canonical_workouts.py','device_mapping_template.csv']+documentation
-    for name in ('requirements.txt','preprocess_fit.py','canonical_workouts.py',*documentation):
+    documentation=['README.md','HANDOFF.md','docs/WORKFLOW.md','docs/CANONICAL_WORKOUT_MODEL.md','docs/CANONICAL_SCHEMA.json','docs/GARMIN_FIT_RETRIEVAL.md','docs/CLAUDE_REVIEW_V2.md','docs/CONTEXT_HANDOFF_PENDING_REVIEW.md','scripts/fetch_garmin_fits.py','docs/examples/canonical_example.json','config/user_resolutions.example.json']
+    package_names=list(exports)+['canonical_dataset_manifest.json','coverage_report.json','requirements.txt','preprocess_fit.py','canonical_workouts.py','source_coverage.py','device_mapping_template.csv']+documentation
+    for name in ('requirements.txt','preprocess_fit.py','canonical_workouts.py','source_coverage.py',*documentation):
         target=args.output/name
         target.parent.mkdir(parents=True,exist_ok=True)
         if target.resolve()!=(root/name).resolve(): target.write_bytes((root/name).read_bytes())
@@ -570,13 +583,13 @@ def main():
     snapshot=None
     current=args.output/'Garmin_Amazfit_Training_Normalized.zip'
     if not failed:
-        files={name:args.output/name if name in exports or name in ('device_mapping_template.csv','canonical_dataset_manifest.json') else root/name for name in package_names}
+        files={name:args.output/name if name in exports or name in ('device_mapping_template.csv','canonical_dataset_manifest.json','coverage_report.json') else root/name for name in package_names}
         current,snapshot=publish_package(args.output,files,args.archive)
     ga=sum({p['device_a'],p['device_b']}=={'Garmin','Amazfit'} and p['grouped_for_training'] and not p.get('composite_duplicate_group_id') for p in pairs)
     print(f'FIT files: {found}; parsed: {parsed}; activities: {len(rows)}; failures: {sum(x["category"]=="failed" for x in quality)}')
     print('Devices: '+str(dict(Counter(r['device_family'] for r in rows))))
     print(f'Garmin/Amazfit grouped pairs: {ga}; all duplicate groups: {len({r["duplicate_group_id"] for r in rows if r["duplicate_group_id"]})}')
-    print(f'Composite groups: {len(composite_groups)}; training-contributing rows: {sum(r["contributes_to_training_totals"] for r in rows)}')
+    print(f'Composite groups: {len(composite_groups)}; legacy preferred-source rows: {sum(r["contributes_to_training_totals"] for r in rows)}')
     print(f'Canonical workouts: {len(canonical["canonical_workouts"])}; open review issues: {len(canonical["reconstruction_review"])}')
     print('Coverage: '+(rows[0]['start_utc']+' to '+rows[-1]['start_utc'] if rows else 'none'))
     for name in package_names:

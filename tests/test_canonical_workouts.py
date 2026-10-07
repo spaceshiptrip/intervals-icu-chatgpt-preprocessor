@@ -134,7 +134,9 @@ class CanonicalScenarios(unittest.TestCase):
         rows, timelines = paired_gap(cadence=False)
         result = normalize(rows, timelines)
         issue = next(i for i in result['reconstruction_issues'] if i['classification'] == 'probable_forgotten_resume')
-        self.assertTrue(issue['requires_user_review'])
+        self.assertFalse(issue['requires_user_review'])
+        self.assertEqual(result['canonical_workouts'][0]['unknown_training_distance_m'], 750)
+        self.assertEqual(result['canonical_workouts'][0]['training_distance_m'], 3000)
         resolutions = {'issues': {issue['issue_id']: {'decision': 'include_walking'}}}
         result = reconstruct(rows, timelines=timelines, resolutions=resolutions)
         workout = result['canonical_workouts'][0]
@@ -155,13 +157,15 @@ class CanonicalScenarios(unittest.TestCase):
         self.assertAlmostEqual(canonical_summaries([workout])[0]['running_miles'], 8.412658, places=5)
         self.assertEqual([r['segment_role'] for r in result['workout_segments']], ['unknown', 'trail'])
 
-    def test_device_dropout_requires_context_even_with_secondary_movement(self):
+    def test_aligned_record_gap_repairs_without_timer_events(self):
         rows, timelines = paired_gap(timer_events=False)
         result = normalize(rows, timelines)
-        self.assertEqual(result['reconstruction_issues'][0]['classification'], 'device_dropout')
-        self.assertIsNone(result['canonical_workouts'][0]['run_distance_m'])
-        self.assertEqual(result['canonical_workouts'][0]['recovered_distance_m'], 0)
-        self.assertGreater(result['canonical_workouts'][0]['candidate_additional_distance_m'], 700)
+        self.assertEqual(result['reconstruction_issues'][0]['classification'], 'recording_gap')
+        workout = result['canonical_workouts'][0]
+        self.assertEqual(workout['training_distance_m'], 3000)
+        self.assertEqual(workout['recovered_distance_m'], 750)
+        self.assertTrue(workout['training_distance_complete'])
+        self.assertFalse(workout['requires_user_review'])
 
     def test_conflicting_total_distance_without_gap_evidence_requires_review(self):
         result = normalize([source('g', distance=2300), source('a', device='Amazfit', distance=3000)])
@@ -296,7 +300,7 @@ class CanonicalScenarios(unittest.TestCase):
         self.assertIsNone(parents[1]['avg_hr_bpm'])
 
     def test_confirmed_running_sources_do_not_hide_unresolved_physical_distance(self):
-        rows, timelines = paired_gap(timer_events=False); initial = normalize(rows, timelines)
+        rows, timelines = paired_gap(timer_events=False, gap=(60, 360)); initial = normalize(rows, timelines)
         cwid = initial['canonical_workouts'][0]['canonical_workout_id']
         result = reconstruct(rows, timelines=timelines, resolutions={'workouts': {cwid: {'run_distance_source_activity_ids': ['i_g']}}})
         workout = result['canonical_workouts'][0]
@@ -400,6 +404,134 @@ class CanonicalScenarios(unittest.TestCase):
         result = normalize(rows, timelines)
         self.assertEqual(len(result['canonical_workouts']), 2)
         self.assertFalse(any(i['classification'] == 'active_window_duplicate' for i in result['reconstruction_issues']))
+
+
+
+    def test_unknown_gap_modality_counts_as_training_without_running_claim(self):
+        rows, timelines = paired_gap(timer_events=False, cadence=False)
+        pairs=duplicates(rows); groups=composite_duplicates(rows,pairs)
+        original = copy.deepcopy(rows)
+        result = reconstruct(rows,pairs,groups,timelines)
+        w = result['canonical_workouts'][0]
+        self.assertEqual(w['training_distance_m'], 3000)
+        self.assertEqual(w['running_distance_m'], 2250)
+        self.assertEqual(w['walking_distance_m'], 0)
+        self.assertEqual(w['hiking_distance_m'], 0)
+        self.assertEqual(w['unknown_training_distance_m'], 750)
+        self.assertIsNone(w['active_pace_min_mile'])
+        self.assertEqual(rows, original)
+        segment = next(s for s in result['workout_segments'] if s['distance_coverage']=='secondary_recovered_gap')
+        self.assertEqual(segment['sport'], 'unknown')
+        summary = canonical_summaries([w])[0]
+        self.assertEqual(summary['training_miles'], 3000 / MILE)
+        self.assertEqual(summary['running_miles'], 2250 / MILE)
+
+    def test_unresolved_gap_keeps_confirmed_training_and_separate_candidate(self):
+        rows, timelines = paired_gap(timer_events=False, gap=(60, 360))
+        result = normalize(rows, timelines); w = result['canonical_workouts'][0]
+        self.assertEqual(w['training_distance_m'], 2250)
+        self.assertEqual(w['candidate_training_distance_m'], 750)
+        self.assertEqual(w['training_distance_status'], 'confirmed_partial')
+        self.assertFalse(w['training_distance_complete'])
+        self.assertIsNone(w['total_physical_outing_distance_m'])
+        summary = canonical_summaries([w], weekly=True)[0]
+        self.assertEqual(summary['training_miles'], 2250 / MILE)
+        self.assertEqual(summary['candidate_additional_training_miles'], 750 / MILE)
+        self.assertFalse(summary['training_mileage_complete'])
+
+    def test_walking_and_hiking_sources_count_toward_training(self):
+        walk = source('walk', distance=1000); walk['sport'] = 'walking'
+        hike = source('hike', start=START+timedelta(hours=3), distance=2000); hike['sport']='hiking'
+        result = normalize([walk, hike]); summary=canonical_summaries(result['canonical_workouts'])[0]
+        self.assertEqual(summary['training_miles'], 3000 / MILE)
+        self.assertEqual(summary['walking_distance_miles'], 1000 / MILE)
+        self.assertEqual(summary['hiking_distance_miles'], 2000 / MILE)
+        self.assertEqual(summary['running_miles'], 0)
+
+    def test_incidental_movement_explicitly_excluded_but_sources_preserved(self):
+        rows=[source('errand', distance=1000)]; rows[0]['sport']='walking'
+        initial=normalize(rows); cid=initial['canonical_workouts'][0]['canonical_workout_id']
+        result=normalize(rows, resolutions={'workouts':{cid:{'intentional_training':False,'note':'Unrelated store errand'}}})
+        w=result['canonical_workouts'][0]
+        self.assertEqual(w['distance_m'],1000)
+        self.assertEqual(w['training_distance_m'],0)
+        self.assertEqual(w['training_distance_status'],'excluded')
+        self.assertEqual(rows[0]['distance_m'],1000)
+        self.assertEqual(canonical_summaries([w])[0]['training_workout_count'],0)
+
+    def test_explicit_hiking_resolution_counts_training_but_not_running(self):
+        rows,timelines=paired_gap(timer_events=False)
+        initial=normalize(rows,timelines); iid=initial['reconstruction_issues'][0]['issue_id']
+        result=normalize(rows,timelines,{'issues':{iid:{'decision':'include_hiking'}}})
+        w=result['canonical_workouts'][0]
+        self.assertEqual(w['training_distance_m'],3000)
+        self.assertEqual(w['running_distance_m'],2250)
+        self.assertEqual(w['hiking_distance_m'],750)
+        self.assertEqual(w['unknown_training_distance_m'],0)
+
+    def test_unknown_distance_never_becomes_zero_training(self):
+        row=source('missing'); row['distance_m']=None
+        w=normalize([row])['canonical_workouts'][0]
+        self.assertIsNone(w['training_distance_m'])
+        self.assertIsNone(canonical_summaries([w])[0]['training_miles'])
+        self.assertEqual(w['training_distance_status'],'unknown')
+
+    def test_stationary_record_gap_never_adds_phantom_training_miles(self):
+        rows,timelines=paired_gap(timer_events=False,stationary=True)
+        w=normalize(rows,timelines)['canonical_workouts'][0]
+        self.assertEqual(w['training_distance_m'],2250)
+        self.assertEqual(w['recovered_distance_m'],0)
+
+    def test_inconsistent_whole_distance_prevents_record_gap_repair(self):
+        rows,timelines=paired_gap(timer_events=False)
+        rows[1]['distance_m']=4500
+        w=normalize(rows,timelines)['canonical_workouts'][0]
+        self.assertEqual(w['recovered_distance_m'],0)
+        self.assertEqual(w['training_distance_m'],2250)
+        self.assertTrue(w['training_distance_requires_user_review'])
+        # Localized candidate is contained in the full difference, not added twice.
+        self.assertEqual(w['candidate_training_distance_m'],2250)
+
+    def test_sparse_secondary_samples_remain_candidates_not_training_repair(self):
+        rows,timelines=paired_gap(timer_events=False,sparse=True)
+        w=normalize(rows,timelines)['canonical_workouts'][0]
+        self.assertEqual(w['training_distance_m'],2250)
+        self.assertFalse(w['training_distance_complete'])
+        self.assertEqual(w['recovered_distance_m'],0)
+
+    def test_training_fields_have_provenance_and_deterministic_reruns(self):
+        rows,timelines=paired_gap(timer_events=False,cadence=False)
+        first=normalize(rows,timelines); second=normalize(rows,timelines)
+        self.assertEqual(first,second)
+        names={p['field_name'] for p in first['field_provenance']}
+        self.assertTrue({'training_distance_m','running_distance_m','walking_distance_m','hiking_distance_m','unknown_training_distance_m','candidate_training_distance_m'} <= names)
+
+    def test_modality_overrides_cannot_exceed_training_distance(self):
+        rows=[source('g')]; initial=normalize(rows); cid=initial['canonical_workouts'][0]['canonical_workout_id']
+        with self.assertRaises(ValueError):
+            normalize(rows,resolutions={'workouts':{cid:{'walking_distance_m':1000}}})
+
+
+
+    def test_primary_distance_already_captured_in_gap_is_subtracted(self):
+        rows,timelines=paired_gap(timer_events=False)
+        rows[0]['distance_m'] += 1.35
+        for record in timelines['g']['records']:
+            if (datetime.fromisoformat(record['timestamp_utc'])-START).total_seconds()>=660:
+                record['distance_m'] += 1.35
+        w=normalize(rows,timelines)['canonical_workouts'][0]
+        self.assertAlmostEqual(w['recovered_distance_m'],748.65)
+        self.assertAlmostEqual(w['training_distance_m'],3000)
+
+    def test_user_unknown_training_modality_overrides_running_evidence(self):
+        rows,timelines=paired_gap(timer_events=False)
+        result=normalize(rows,timelines);iid=result['reconstruction_issues'][0]['issue_id']
+        result=normalize(rows,timelines,{'issues':{iid:{'decision':'include_training'}}})
+        w=result['canonical_workouts'][0]
+        self.assertEqual(w['running_distance_m'],2250)
+        self.assertEqual(w['unknown_training_distance_m'],750)
+        segment=next(s for s in result['workout_segments'] if s['distance_coverage']=='secondary_recovered_gap')
+        self.assertEqual(segment['sport'],'unknown')
 
 
 if __name__ == '__main__': unittest.main()

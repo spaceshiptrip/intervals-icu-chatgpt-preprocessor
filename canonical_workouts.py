@@ -16,9 +16,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SCHEMA_VERSION = 'canonical-workout-1'
+SCHEMA_VERSION = 'canonical-workout-2'
 EXPORT_HEADERS = {
-    'canonical_workouts': ('schema_version', 'canonical_workout_id', 'local_date', 'canonical_status', 'distance_m', 'run_distance_m', 'requires_user_review'),
+    'canonical_workouts': ('schema_version', 'canonical_workout_id', 'local_date', 'canonical_status', 'training_distance_m', 'training_distance_complete', 'distance_m', 'run_distance_m', 'requires_user_review'),
     'workout_segments': ('workout_segment_id', 'canonical_workout_id', 'source_activity_id', 'segment_role', 'start_utc', 'end_utc', 'distance_m'),
     'source_relationships': ('canonical_workout_id', 'source_activity_id', 'source_activity_key', 'relationship_type', 'counts_separately_in_training_totals'),
     'field_provenance': ('canonical_workout_id', 'field_name', 'value', 'unit', 'source_activity_ids', 'method', 'coverage_scope', 'confidence', 'coverage_intervals'),
@@ -29,7 +29,58 @@ LOCAL = ZoneInfo('America/Los_Angeles')
 MILE = 1609.344
 DEVICE_RANK = {'Garmin': 0, 'Amazfit': 1, 'Other': 2, 'Unknown': 3}
 ROLES = {'warmup', 'workout', 'cooldown', 'easy_run', 'trail', 'commute', 'walk', 'unknown'}
-DECISIONS = {'include_running', 'include_walking', 'stationary_stop', 'separate_activity', 'unsure', 'use_preferred', 'use_secondary'}
+DECISIONS = {'include_running', 'include_walking', 'include_hiking', 'include_training', 'stationary_stop', 'separate_activity', 'unsure', 'use_preferred', 'use_secondary'}
+
+
+TRAINING_FIELDS = (
+    'intentional_training', 'training_distance_m', 'training_distance_miles',
+    'training_distance_complete', 'training_distance_status', 'training_distance_requires_user_review',
+    'candidate_training_distance_m', 'provisional_training_distance_m',
+    'total_physical_outing_distance_m', 'total_physical_outing_distance_miles',
+    'running_distance_m', 'walking_distance_m', 'hiking_distance_m',
+    'unknown_training_distance_m', 'other_training_distance_m', 'modality_basis', 'counts_toward_training_totals',
+)
+
+
+def add_training_fields(cw, sources, override, confirmed, running, walking_repair=0, hiking_repair=0, unresolved=False, overlap=False):
+    """Confirmed measured training portions survive an unresolved full outing.
+
+    Sport labels are source classifications, not invented per-step gait estimates.
+    Explicit exclusion keeps physical/source records while removing incidental miles.
+    """
+    intentional = override.get('intentional_training', True)
+    complete = not unresolved and not overlap and confirmed is not None
+    if overlap: confirmed = None
+    cw['intentional_training'] = intentional
+    cw['counts_toward_training_totals'] = intentional
+    cw['training_distance_m'] = confirmed if intentional else 0
+    cw['training_distance_complete'] = complete if intentional else True
+    cw['training_distance_status'] = ('excluded' if not intentional else 'unknown' if confirmed is None else 'confirmed' if complete else 'confirmed_partial')
+    cw['training_distance_requires_user_review'] = intentional and not complete
+    cw['training_distance_miles'] = cw['training_distance_m'] / MILE if cw['training_distance_m'] is not None else None
+    cw['total_physical_outing_distance_m'] = cw['distance_m']
+    cw['total_physical_outing_distance_miles'] = cw['distance_m'] / MILE if cw['distance_m'] is not None else None
+    def modality(sport, repair):
+        selected = [r for r in sources if r['sport'] == sport]
+        base = sum_complete(selected, 'distance_m') if selected else 0
+        return base + repair if base is not None else None
+    walking = override.get('walking_distance_m', modality('walking', walking_repair))
+    hiking = override.get('hiking_distance_m', modality('hiking', hiking_repair))
+    other_sources = [r for r in sources if r['sport'] not in ('running', 'walking', 'hiking', 'mixed', 'other', 'unknown')]
+    other = sum_complete(other_sources, 'distance_m') if other_sources else 0
+    cw['running_distance_m'] = running if intentional and not overlap else (None if intentional else 0)
+    cw['walking_distance_m'] = walking if intentional and not overlap else (None if intentional else 0)
+    cw['hiking_distance_m'] = hiking if intentional and not overlap else (None if intentional else 0)
+    cw['other_training_distance_m'] = other if intentional and not overlap else (None if intentional else 0)
+    parts = [cw[k] for k in ('running_distance_m', 'walking_distance_m', 'hiking_distance_m', 'other_training_distance_m')]
+    if cw['training_distance_m'] is not None and all(v is not None for v in parts):
+        remaining = cw['training_distance_m'] - sum(parts)
+        if remaining < -.001: raise ValueError('Modality breakdown exceeds confirmed training distance')
+        cw['unknown_training_distance_m'] = max(0, remaining)
+    else: cw['unknown_training_distance_m'] = None
+    cw['candidate_training_distance_m'] = None if unresolved else 0
+    cw['provisional_training_distance_m'] = None if unresolved else cw['training_distance_m']
+    cw['modality_basis'] = 'source_sport_labels_and_explicit_resolutions; mixed recovered movement stays unknown'
 
 
 def stable_id(prefix, parts):
@@ -89,9 +140,11 @@ def load_resolutions(path):
             raise ValueError('separate_activity resolution requires sport: running/walking/cycling/hiking/other')
     for override in result.get('workouts', {}).values():
         if not isinstance(override, dict): raise ValueError('Workout resolution must be an object')
-        for key in ('distance_m', 'run_distance_m', 'trail_distance_m'):
+        for key in ('distance_m', 'run_distance_m', 'trail_distance_m', 'walking_distance_m', 'hiking_distance_m'):
             if key in override and (not finite(override[key]) or override[key] < 0):
                 raise ValueError(f'{key} resolution must be a finite nonnegative number')
+        if 'intentional_training' in override and not isinstance(override['intentional_training'], bool):
+            raise ValueError('intentional_training must be boolean')
         if any(role not in ROLES for role in override.get('segment_roles', {}).values()):
             raise ValueError('Unsupported segment role')
         if 'run_distance_source_activity_ids' in override and (not isinstance(override['run_distance_source_activity_ids'], list) or not override['run_distance_source_activity_ids']):
@@ -146,7 +199,8 @@ class Timeline:
                 'sampled_start_utc': sampled[0]['timestamp_utc'], 'sampled_end_utc': sampled[-1]['timestamp_utc'],
                 'coverage_fraction': min(1, coverage), 'motion_duration_s': motion_seconds,
                 'running_fraction': running_seconds / measured_duration,
-                'stationary_duration_s': stationary_seconds, 'max_sample_gap_s': max(gaps)}
+                'stationary_duration_s': stationary_seconds, 'max_sample_gap_s': max(gaps),
+                'max_distance_speed_mps': max((d / t for d, t in zip(deltas, gaps) if t > 0), default=0)}
 
     def delta(self, start, end, tolerance=20):
         a, b = self.nearest(start, tolerance), self.nearest(end, tolerance)
@@ -337,10 +391,10 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
         cw['active_pace_min_mile'] = cw['recorded_active_pace_min_mile']
         cw['active_pace_scope'] = 'recorded_segments' if len(primary) > 1 else 'whole_recorded_workout'
         record('active_pace_min_mile', base_ids, 'timer_over_same_source_distance', cw['active_pace_scope'])
-        local_issues = []; known_repair = 0; walk_repair = 0; trail_repair = 0; unresolved = False; notes = []
+        local_issues = []; known_repair = 0; walk_repair = 0; hike_repair = 0; unknown_repair = 0; trail_repair = 0; unresolved = False; notes = []
         repair_ids = []; repaired_intervals = []; full_secondary_choice = False; separate_gaps = []
         def issue(kind, left=None, right=None, secondary_row=None, evidence=None, auto=False, extra=None):
-            key = [cw_id, kind, left.isoformat() if left else '', right.isoformat() if right else '']
+            key = [cw_id, 'device_dropout' if kind == 'recording_gap' else kind, left.isoformat() if left else '', right.isoformat() if right else '']
             identifier = stable_id('issue_', key)
             evidence = evidence or {}
             candidate = extra if extra is not None else evidence.get('recoverable_distance_m')
@@ -377,7 +431,7 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 if not evidence:
                     agreement = baseline is not None and continuous.get('distance_m') is not None and abs(continuous['distance_m'] - baseline) <= max(150, baseline * .05)
                     outside = right > dt(continuous['end_utc']) + timedelta(seconds=30) or left < dt(continuous['start_utc']) - timedelta(seconds=30)
-                    item, decision = issue('unknown_pause' if gap_kind != 'record_gap' else 'device_dropout', left, right, continuous,
+                    item, decision = issue('unknown_pause' if gap_kind != 'record_gap' else 'recording_gap', left, right, continuous,
                           {'gap_signal': gap_kind, 'reason': 'Secondary samples insufficient, sparse, or cumulative distance invalid',
                            'session_distances_agree_within_tolerance': agreement, 'outside_secondary_timeline': outside}, auto=agreement or outside)
                     if agreement or outside: item['resolution'] = 'no_supported_missing_distance'
@@ -399,17 +453,37 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 significant = missing >= max(50, (baseline or 0) * .02)
                 discrepancy = (continuous.get('distance_m') or 0) - (baseline or 0)
                 consistent = discrepancy >= missing * .5 and discrepancy <= missing * 1.5 + max(100, (baseline or 0) * .03)
-                auto = explicit and primary_delta is not None and running and significant and consistent and evidence['aligned_before_and_after']
-                kind = 'probable_forgotten_resume' if explicit else ('device_dropout' if gap_kind == 'record_gap' else 'unknown_pause')
+                # A record gap is sufficient when measured evidence is strong. This
+                # confirms missing movement, not intent to pause or a hardware fault.
+                paired_high = (bool(matched) or any(g.get('confidence') == 'high' and
+                    g.get('composite_duplicate_group_id') == source.get('composite_duplicate_group_id')
+                    for g in composite_groups) or any(pair.get('confidence') == 'high' and
+                    source['activity_id'] in (pair.get('activity_id_a'), pair.get('activity_id_b')) and
+                    continuous['activity_id'] in (pair.get('activity_id_a'), pair.get('activity_id_b')) for pair in pairs))
+                # Also permit directly supplied matched memberships with tight whole-session agreement.
+                paired_high = paired_high or (evidence['aligned_before_and_after'] and source['sport'] == continuous['sport'] and
+                    abs((dt(source['start_utc'])-dt(continuous['start_utc'])).total_seconds()) <= 120 and
+                    overlapping(source, continuous) / max(1, min((dt(source['end_utc'])-dt(source['start_utc'])).total_seconds(),
+                    (dt(continuous['end_utc'])-dt(continuous['start_utc'])).total_seconds())) >= .9)
+                spans = dt(continuous['start_utc']) <= left and dt(continuous['end_utc']) >= right
+                measured_motion = missing >= 20 and evidence['motion_duration_s'] >= 10
+                plausible = evidence['max_distance_speed_mps'] <= 12
+                strong = primary_delta is not None and consistent and evidence['aligned_before_and_after'] and spans and plausible and not source_overlap
+                auto = strong and measured_motion and (explicit or gap_kind == 'record_gap' and paired_high) and (right-left).total_seconds() <= 1800
+                evidence['same_workout_high_confidence'] = paired_high
+                evidence['whole_session_distance_consistent'] = consistent
+                evidence['motion_confirmed_not_pause_intent'] = auto
+                kind = 'probable_forgotten_resume' if explicit else ('recording_gap' if gap_kind == 'record_gap' else 'unknown_pause')
                 item, decision = issue(kind, left, right, continuous, evidence, auto=auto)
                 if auto: item['resolution'] = 'automatic_secondary_gap_repair'
-                if not significant and missing < 50 and not decision:
+                if not significant and missing < 50 and not decision and not auto:
                     item['requires_user_review'] = False; item['resolution'] = 'gap_distance_below_review_threshold'
-                accept = decision['decision'] in ('include_running', 'include_walking') if decision else auto
+                accept = decision['decision'] in ('include_running', 'include_walking', 'include_hiking', 'include_training') if decision else auto
                 reject = decision and decision['decision'] in ('stationary_stop', 'use_preferred')
                 if accept:
-                    if not significant and not decision: continue
                     if decision and decision['decision'] == 'include_walking': walk_repair += missing
+                    elif decision and decision['decision'] == 'include_hiking': hike_repair += missing
+                    elif (decision and decision['decision'] == 'include_training') or (not decision and not running): unknown_repair += missing
                     else:
                         known_repair += missing
                         if source.get('sub_sport') == 'trail': trail_repair += missing
@@ -437,11 +511,16 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 if evidence is None: evidence = {'reason': 'No dense continuous distance samples at split boundary'}
                 evidence['recoverable_distance_m'] = evidence.get('distance_m')
                 extra = evidence.get('distance_m')
-                auto = extra is not None and extra < 50
+                movement = extra is not None and extra >= 5 and evidence.get('motion_duration_s', 0) >= 5 and evidence.get('max_distance_speed_mps', 99) <= 12
+                distance_agreement = baseline is not None and continuous.get('distance_m') is not None and abs(continuous['distance_m'] - baseline) <= max(150, baseline*.05)
+                auto = extra is not None and (extra < 50 or movement and distance_agreement and (right-left).total_seconds() <= 300)
                 item, decision = issue('split_activity_boundary', left, right, continuous, evidence, auto=auto, extra=extra)
-                if decision and decision['decision'] in ('include_running', 'include_walking') and extra is not None:
-                    if decision['decision'] == 'include_running': known_repair += extra
-                    else: walk_repair += extra
+                if (decision and decision['decision'] in ('include_running', 'include_walking', 'include_hiking', 'include_training') or auto and movement and not decision) and extra is not None:
+                    if decision and decision['decision'] == 'include_running': known_repair += extra
+                    elif decision and decision['decision'] == 'include_walking': walk_repair += extra
+                    elif decision and decision['decision'] == 'include_hiking': hike_repair += extra
+                    else: unknown_repair += extra
+                    if not decision: item['resolution'] = 'automatic_secondary_gap_repair'
                     repair_ids.append(continuous['activity_id']); repaired_intervals.append({'source_activity_id': continuous['activity_id'], 'start_utc': evidence['sampled_start_utc'], 'end_utc': evidence['sampled_end_utc']})
                     item['requires_user_review'] = False
                 elif decision and decision['decision'] == 'separate_activity' and extra is not None:
@@ -454,7 +533,7 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
         # Never repair from total distance disagreement alone.
         difference = None
         if continuous and baseline is not None and continuous.get('distance_m') is not None:
-            difference = continuous['distance_m'] - baseline - known_repair - walk_repair - sum(entry[2]['recoverable_distance_m'] for entry in separate_gaps)
+            difference = continuous['distance_m'] - baseline - known_repair - walk_repair - hike_repair - unknown_repair - sum(entry[2]['recoverable_distance_m'] for entry in separate_gaps)
             unresolved_gap_distance = sum(max(0, item['candidate_additional_distance_m'] or 0) for item in local_issues if item['requires_user_review'])
             user_retained = any(item['user_decision'] in ('use_preferred', 'stationary_stop') for item in local_issues)
             if abs(difference) > max(150, baseline * .05) and not user_retained and unresolved_gap_distance < abs(difference) * .5:
@@ -464,15 +543,15 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 elif decision and decision['decision'] == 'use_secondary':
                     full_secondary_choice = True; item['requires_user_review'] = False
                 else: unresolved = True
-        if known_repair or walk_repair:
-            cw['distance_m'] = baseline + known_repair + walk_repair if baseline is not None else None
+        if known_repair or walk_repair or hike_repair or unknown_repair:
+            cw['distance_m'] = baseline + known_repair + walk_repair + hike_repair + unknown_repair if baseline is not None else None
             cw['run_distance_m'] = run_base + known_repair if run_base is not None and cw['sport'] == 'running' else run_base
             cw['trail_distance_m'] = trail_base + trail_repair if trail_base is not None else None
-            cw['recovered_distance_m'] = known_repair + walk_repair; cw['non_running_recovered_distance_m'] = walk_repair
+            cw['recovered_distance_m'] = known_repair + walk_repair + hike_repair + unknown_repair; cw['non_running_recovered_distance_m'] = walk_repair + hike_repair + unknown_repair
             cw['canonical_status'] = 'reconstructed'; cw['active_distance_m'] = None; cw['timer_duration_s'] = None
             cw['moving_duration_s'] = None; cw['active_pace_min_mile'] = None; cw['active_pace_scope'] = 'partial_Garmin_pace_separate'
             record('distance_m', base_ids + repair_ids, 'preferred_distance_plus_measured_secondary_gap', 'whole_workout', intervals=ledger['distance_m']['coverage_intervals'] + repaired_intervals)
-            record('run_distance_m', base_ids + repair_ids, 'confirmed_running_gap_plus_recorded_running', 'whole_workout', intervals=ledger['distance_m']['coverage_intervals'])
+            record('run_distance_m', base_ids + (repair_ids if known_repair else []), 'recorded_running_plus_supported_running_gap', 'whole_workout', intervals=ledger['distance_m']['coverage_intervals'])
             if trail_repair: record('trail_distance_m', base_ids + repair_ids, 'recovered_motion_within_source_trail_segment', 'whole_workout')
             for field in ('active_distance_m', 'timer_duration_s', 'moving_duration_s', 'active_pace_min_mile'):
                 record(field, base_ids, 'unknown_full_coverage_after_distance_repair', 'incomplete')
@@ -535,6 +614,8 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
             raise ValueError('Confirmed running distance exceeds physical distance')
         if cw['run_distance_m'] is not None and cw['trail_distance_m'] is not None and cw['trail_distance_m'] > cw['run_distance_m'] + .001:
             raise ValueError('Confirmed trail distance exceeds running distance')
+        confirmed_training = cw['distance_m'] if cw['distance_m'] is not None else baseline
+        confirmed_running = cw['run_distance_m'] if cw['run_distance_m'] is not None else run_base
         if unresolved:
             cw['provisional_distance_m'] = cw['distance_m']; cw['provisional_run_distance_m'] = cw['run_distance_m']
             cw['distance_m'] = None
@@ -547,8 +628,21 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
             if cw['run_distance_m'] is None: record('run_distance_m', base_ids + repair_ids, 'unresolved_running_count', 'incomplete', 'low')
             for field in ('active_distance_m', 'active_pace_min_mile'):
                 record(field, base_ids, 'unknown_full_coverage_while_distance_unresolved', 'incomplete', 'low')
+        add_training_fields(cw, primary, override, confirmed_training, confirmed_running, walk_repair, hike_repair, unresolved, source_overlap)
+        for field in TRAINING_FIELDS:
+            record(field, ledger['run_distance_m']['source_activity_ids'] if field == 'running_distance_m' else ledger['distance_m']['source_activity_ids'] if 'training' in field or 'physical' in field else base_ids + repair_ids,
+                   'intentional_training_measured_portions' if 'training' in field else 'source_sport_and_measured_gap_modality',
+                   'confirmed_portions' if unresolved else 'whole_workout')
+        for field in ('walking_distance_m', 'hiking_distance_m'):
+            if field in override: record(field, [], 'user_reported_modality_distance', 'user_confirmed')
+        if 'run_distance_m' in override: record('running_distance_m', [], 'user_reported_modality_distance', 'user_confirmed')
+        if 'intentional_training' in override: record('intentional_training', [], 'user_outing_context', 'user_confirmed')
         cw['requires_user_review'] = unresolved or any(item['requires_user_review'] for item in local_issues)
-        cw['candidate_additional_distance_m'] = sum(max(0, item['candidate_additional_distance_m'] or 0) for item in local_issues if item['requires_user_review'])
+        gap_candidates = sum(max(0, item['candidate_additional_distance_m'] or 0) for item in local_issues if item['requires_user_review'] and item['classification'] != 'conflicting_distance')
+        whole_candidates = max((max(0, item['candidate_additional_distance_m'] or 0) for item in local_issues if item['requires_user_review'] and item['classification'] == 'conflicting_distance'), default=0)
+        cw['candidate_additional_distance_m'] = max(gap_candidates, whole_candidates)
+        cw['candidate_training_distance_m'] = cw['candidate_additional_distance_m'] if cw['intentional_training'] and cw['candidate_additional_distance_m'] > 0 else (None if unresolved and cw['intentional_training'] else 0)
+        cw['provisional_training_distance_m'] = (cw['training_distance_m'] + cw['candidate_training_distance_m']) if cw['training_distance_m'] is not None and cw['candidate_training_distance_m'] is not None else None
         if not unresolved: cw['provisional_distance_m'] = cw['distance_m']; cw['provisional_run_distance_m'] = cw['run_distance_m']
         cw['distance_miles'] = cw['distance_m'] / MILE if cw['distance_m'] is not None else None
         cw['run_distance_miles'] = cw['run_distance_m'] / MILE if cw['run_distance_m'] is not None else None
@@ -582,12 +676,12 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 'counts_separately_in_training_totals': False, 'included_in_parent_distance': True,
                 'distance_coverage': 'recorded_portion', 'name': source.get('activity_name')})
         for item in local_issues:
-            if item['resolution'] not in ('automatic_secondary_gap_repair', 'user_include_running', 'user_include_walking'): continue
+            if item['resolution'] not in ('automatic_secondary_gap_repair', 'user_include_running', 'user_include_walking', 'user_include_hiking', 'user_include_training'): continue
             if item.get('candidate_additional_distance_m') is None or not item['start_utc']: continue
             segments.append({'workout_segment_id': stable_id('segment_', [cw_id, item['issue_id']]),
                 'canonical_workout_id': cw_id, 'session_group_id': cw_id, 'source_activity_id': continuous['activity_id'],
                 'segment_order': None, 'segment_role': 'walk' if item['user_decision'] == 'include_walking' else 'unknown',
-                'role_source': 'user_resolution' if item['user_decision'] else 'unknown', 'sport': 'walking' if item['user_decision'] == 'include_walking' else cw['sport'],
+                'role_source': 'user_resolution' if item['user_decision'] else 'unknown', 'sport': 'walking' if item['user_decision'] == 'include_walking' else 'hiking' if item['user_decision'] == 'include_hiking' else 'running' if item['user_decision'] == 'include_running' or not item['user_decision'] and item['evidence_json'].get('running_fraction', 0) >= .8 else 'unknown',
                 'sub_sport': None, 'start_utc': item['start_utc'], 'end_utc': item['end_utc'],
                 'distance_m': item['candidate_additional_distance_m'], 'timer_duration_s': None,
                 'counts_separately_in_training_totals': False, 'included_in_parent_distance': True,
@@ -606,17 +700,17 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
             record(field, [r['activity_id'] for r in members], 'canonical_relationship_and_issue_rules', 'whole_workout', cw['confidence'])
         cw['revision'] = stable_id('revision_', [json.dumps(cw, sort_keys=True, default=str), *(r.get('content_sha256', r['activity_id']) for r in members), json.dumps(override, sort_keys=True), json.dumps(local_issues, sort_keys=True, default=str)])
         for field, metadata in ledger.items():
-            unit = 'm' if field.endswith('_m') else 's' if field.endswith('_s') else 'min/mile' if 'pace' in field else 'bpm' if field.endswith('_bpm') else 'ISO UTC' if field.endswith('_utc') else 'native source unit'
+            unit = 'miles' if field.endswith('_miles') else 'm' if field.endswith('_m') else 's' if field.endswith('_s') else 'min/mile' if 'pace' in field else 'bpm' if field.endswith('_bpm') else 'ISO UTC' if field.endswith('_utc') else 'native source unit'
             provenance.append({'canonical_workout_id': cw_id, 'field_name': field, 'value': cw.get(field), 'unit': unit, **metadata})
         for item in local_issues:
             issues.append(item)
             if item['requires_user_review']:
                 review.append({'issue_id': item['issue_id'], 'canonical_workout_id': cw_id, 'date': cw['local_date'],
                     'source_activities': item['source_activity_ids'], 'detected_problem': item['classification'],
-                    'suggested_interpretation': 'Movement in a Garmin gap is not automatically running; confirm context and counting.',
+                    'suggested_interpretation': 'Measured outing movement counts as training; unresolved evidence or unrelated movement needs review.',
                     'candidate_distance_m': item['candidate_additional_distance_m'], 'candidate_elapsed_time_s': (dt(item['end_utc']) - dt(item['start_utc'])).total_seconds() if item['start_utc'] and item['end_utc'] else None,
                     'confidence': item['confidence'],
-                    'question_for_user': 'Was this running/hiking to include as running, separate walking/social movement, a stationary stop, a separate activity, or unsure? For total-distance conflicts, which source is supported?',
+                    'question_for_user': 'Was this movement within the intentional training outing (running, walking, hiking, or unknown), a stationary stop, unrelated movement/separate activity, or unsure? For distance conflicts, which source is supported?',
                     'user_decision': item['user_decision'], 'resolution': item['resolution']})
         workouts.append(cw)
         for item, decision, evidence, secondary_row in separate_gaps:
@@ -641,6 +735,8 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 summary_note='User-separated measured secondary-device gap; excluded from original parent distance.')
             for field in ('distance_source_activity_ids','elapsed_source_activity_ids'): extra[field]=[secondary_row['activity_id']]
             for field in ('pace_source_activity_ids','hr_source_activity_ids','elevation_source_activity_ids'): extra[field]=[]
+            add_training_fields(extra, [{'sport': decision['sport'], 'distance_m': distance}], {}, distance, extra['run_distance_m'])
+            extra['candidate_training_distance_m'] = 0; extra['provisional_training_distance_m'] = distance
             extra.pop('revision',None); extra['revision']=stable_id('revision_', [json.dumps(extra,sort_keys=True,default=str),json.dumps(decision,sort_keys=True)])
             workouts.append(extra)
             relationships.append({'canonical_workout_id':extra_id,'source_activity_id':secondary_row['activity_id'],
@@ -669,7 +765,7 @@ def canonical_summaries(workouts, weekly=False):
         groups[day.isoformat()].append(workout)
     out = []
     for day, items in sorted(groups.items()):
-        runs = [w for w in items if w['sport'] in ('running', 'mixed')]
+        runs = [w for w in items if w['sport'] in ('running', 'mixed') and w['intentional_training']]
         unresolved = [w for w in runs if w['run_distance_m'] is None or w['mileage_requires_user_review']]
         known = sum(w['run_distance_m'] for w in runs if w['run_distance_m'] is not None) / MILE
         provisional = sum(w['provisional_run_distance_m'] or 0 for w in unresolved) / MILE
@@ -680,8 +776,28 @@ def canonical_summaries(workouts, weekly=False):
             return sum(values) if values else None
         distances = [w['run_distance_miles'] for w in runs if w['run_distance_miles'] is not None]
         durations = [w['elapsed_duration_s'] for w in items if w['elapsed_duration_s'] is not None]
+        training = [w for w in items if w['intentional_training']]
+        confirmed = [w['training_distance_m'] for w in training if w['training_distance_m'] is not None]
+        training_miles = sum(confirmed) / MILE if confirmed else (0 if not training else None)
+        training_complete = all(w['training_distance_complete'] for w in training)
+        candidates = [w['candidate_training_distance_m'] for w in training]
+        known_candidates = sum(v for v in candidates if v is not None) / MILE
+        training_summary = {
+            'training_miles': training_miles, 'confirmed_training_miles': training_miles,
+            'training_mileage_complete': training_complete,
+            'training_distance_requires_user_review': any(w['training_distance_requires_user_review'] for w in training),
+            'unresolved_training_workout_count': sum(not w['training_distance_complete'] for w in training),
+            'unknown_training_workout_count': sum(w['training_distance_m'] is None for w in training),
+            'candidate_additional_training_miles': known_candidates if all(v is not None for v in candidates) else None,
+            'known_candidate_additional_training_miles': known_candidates,
+            'training_miles_including_candidates': training_miles + known_candidates if training_miles is not None and all(v is not None for v in candidates) else None,
+            'training_workout_count': len(training),
+            'long_training_outing_miles': max((w['training_distance_miles'] for w in training if w['training_distance_miles'] is not None), default=None),
+        }
+        for field in ('running_distance_m', 'walking_distance_m', 'hiking_distance_m', 'unknown_training_distance_m', 'other_training_distance_m'):
+            training_summary[field.removesuffix('_m') + '_miles'] = sum_complete(training, field) / MILE if training and sum_complete(training, field) is not None else (0 if not training else None)
         out.append({'week_starting_local' if weekly else 'date_local': day,
-            'counting_basis': 'canonical_physical_workouts', 'activity_count': len(items), 'canonical_workout_count': len(items),
+            'counting_basis': 'canonical_confirmed_intentional_training', **training_summary, 'activity_count': len(items), 'canonical_workout_count': len(items),
             'source_segment_count': sum(w['source_segment_count'] for w in items), 'running_miles': None if unresolved else known,
             'workout_segment_count': sum(w['segment_count'] for w in items),
             'known_running_miles': known, 'provisional_running_miles': provisional,
