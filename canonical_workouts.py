@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-SCHEMA_VERSION = 'canonical-workout-2'
+SCHEMA_VERSION = 'canonical-workout-3'
 EXPORT_HEADERS = {
     'canonical_workouts': ('schema_version', 'canonical_workout_id', 'local_date', 'canonical_status', 'training_distance_m', 'training_distance_complete', 'distance_m', 'run_distance_m', 'requires_user_review'),
     'workout_segments': ('workout_segment_id', 'canonical_workout_id', 'source_activity_id', 'segment_role', 'start_utc', 'end_utc', 'distance_m'),
@@ -33,6 +33,8 @@ DECISIONS = {'include_running', 'include_walking', 'include_hiking', 'include_tr
 
 
 TRAINING_FIELDS = (
+    'training_intent_status', 'foot_training_eligible', 'unclassified_training_distance_m',
+    'confirmed_training_distance_mi', 'cycling_distance_m', 'cycling_duration_s',
     'intentional_training', 'training_distance_m', 'training_distance_miles',
     'training_distance_complete', 'training_distance_status', 'training_distance_requires_user_review',
     'candidate_training_distance_m', 'provisional_training_distance_m',
@@ -48,16 +50,39 @@ def add_training_fields(cw, sources, override, confirmed, running, walking_repai
     Sport labels are source classifications, not invented per-step gait estimates.
     Explicit exclusion keeps physical/source records while removing incidental miles.
     """
-    intentional = override.get('intentional_training', True)
+    sports = {r['sport'] for r in sources}
+    foot = sports <= {'running', 'walking', 'hiking'}
+    # A watch-recorded generic walk is not evidence of training intent.
+    if 'intentional_training' in override:
+        intentional = override['intentional_training']
+    elif sports == {'walking'}:
+        names = ' '.join(r.get('activity_name') or '' for r in sources).lower()
+        intentional = True if re.search(r'\b(recovery walk|training walk|walking workout)\b', names) else None
+    elif foot or sports == {'cycling'}:
+        intentional = True
+    else:
+        intentional = None
+    cw['training_intent_status'] = 'unclassified' if intentional is None else 'intentional' if intentional else 'incidental'
+    foot_scope = True if foot else None if sports & {'running', 'walking', 'hiking', 'mixed', 'other', 'unknown'} else False
+    cw['foot_training_eligible'] = override.get('foot_training_eligible', foot_scope)
+    if 'cycling' in sports and cw['foot_training_eligible'] is True:
+        raise ValueError('Cycling cannot be classified as foot training')
+    cycling_sources = [r for r in sources if r['sport'] == 'cycling']
+    cw['cycling_distance_m'] = sum_complete(cycling_sources, 'distance_m') if cycling_sources else 0
+    cw['cycling_duration_s'] = sum_complete(cycling_sources, 'timer_duration_s') if cycling_sources else 0
+    eligible = intentional is True and cw['foot_training_eligible'] is True
+    ambiguous = (intentional is None and cw['foot_training_eligible'] is not False) or (intentional is True and cw['foot_training_eligible'] is None)
+    cw['unclassified_training_distance_m'] = confirmed if ambiguous and not overlap else None if ambiguous else 0
     complete = not unresolved and not overlap and confirmed is not None
     if overlap: confirmed = None
     cw['intentional_training'] = intentional
-    cw['counts_toward_training_totals'] = intentional
-    cw['training_distance_m'] = confirmed if intentional else 0
-    cw['training_distance_complete'] = complete if intentional else True
-    cw['training_distance_status'] = ('excluded' if not intentional else 'unknown' if confirmed is None else 'confirmed' if complete else 'confirmed_partial')
-    cw['training_distance_requires_user_review'] = intentional and not complete
+    cw['counts_toward_training_totals'] = eligible
+    cw['training_distance_m'] = confirmed if eligible else None if ambiguous else 0
+    cw['training_distance_complete'] = complete if eligible else not ambiguous
+    cw['training_distance_status'] = ('unclassified' if ambiguous else 'excluded' if intentional is False else 'non_foot' if not eligible else 'unknown' if confirmed is None else 'confirmed' if complete else 'confirmed_partial')
+    cw['training_distance_requires_user_review'] = ambiguous or eligible and not complete
     cw['training_distance_miles'] = cw['training_distance_m'] / MILE if cw['training_distance_m'] is not None else None
+    cw['confirmed_training_distance_mi'] = cw['training_distance_miles']
     cw['total_physical_outing_distance_m'] = cw['distance_m']
     cw['total_physical_outing_distance_miles'] = cw['distance_m'] / MILE if cw['distance_m'] is not None else None
     def modality(sport, repair):
@@ -68,18 +93,18 @@ def add_training_fields(cw, sources, override, confirmed, running, walking_repai
     hiking = override.get('hiking_distance_m', modality('hiking', hiking_repair))
     other_sources = [r for r in sources if r['sport'] not in ('running', 'walking', 'hiking', 'mixed', 'other', 'unknown')]
     other = sum_complete(other_sources, 'distance_m') if other_sources else 0
-    cw['running_distance_m'] = running if intentional and not overlap else (None if intentional else 0)
-    cw['walking_distance_m'] = walking if intentional and not overlap else (None if intentional else 0)
-    cw['hiking_distance_m'] = hiking if intentional and not overlap else (None if intentional else 0)
-    cw['other_training_distance_m'] = other if intentional and not overlap else (None if intentional else 0)
-    parts = [cw[k] for k in ('running_distance_m', 'walking_distance_m', 'hiking_distance_m', 'other_training_distance_m')]
+    cw['running_distance_m'] = running if eligible and not overlap else (None if ambiguous or eligible else 0)
+    cw['walking_distance_m'] = walking if eligible and not overlap else (None if ambiguous or eligible else 0)
+    cw['hiking_distance_m'] = hiking if eligible and not overlap else (None if ambiguous or eligible else 0)
+    cw['other_training_distance_m'] = other if intentional is True and not overlap else (None if ambiguous else 0)
+    parts = [cw[k] for k in ('running_distance_m', 'walking_distance_m', 'hiking_distance_m')]
     if cw['training_distance_m'] is not None and all(v is not None for v in parts):
         remaining = cw['training_distance_m'] - sum(parts)
         if remaining < -.001: raise ValueError('Modality breakdown exceeds confirmed training distance')
         cw['unknown_training_distance_m'] = max(0, remaining)
     else: cw['unknown_training_distance_m'] = None
-    cw['candidate_training_distance_m'] = None if unresolved else 0
-    cw['provisional_training_distance_m'] = None if unresolved else cw['training_distance_m']
+    cw['candidate_training_distance_m'] = None if unresolved and eligible or ambiguous else 0
+    cw['provisional_training_distance_m'] = None if unresolved and eligible or ambiguous else cw['training_distance_m']
     cw['modality_basis'] = 'source_sport_labels_and_explicit_resolutions; mixed recovered movement stays unknown'
 
 
@@ -136,6 +161,8 @@ def load_resolutions(path):
     for decision in result.get('issues', {}).values():
         if not isinstance(decision, dict) or decision.get('decision') not in DECISIONS:
             raise ValueError('Invalid issue resolution decision')
+        if 'intentional_training' in decision and not isinstance(decision['intentional_training'], bool):
+            raise ValueError('Separated activity intentional_training must be boolean')
         if decision['decision'] == 'separate_activity' and decision.get('sport') not in ('running', 'walking', 'cycling', 'hiking', 'other'):
             raise ValueError('separate_activity resolution requires sport: running/walking/cycling/hiking/other')
     for override in result.get('workouts', {}).values():
@@ -143,6 +170,8 @@ def load_resolutions(path):
         for key in ('distance_m', 'run_distance_m', 'trail_distance_m', 'walking_distance_m', 'hiking_distance_m'):
             if key in override and (not finite(override[key]) or override[key] < 0):
                 raise ValueError(f'{key} resolution must be a finite nonnegative number')
+        if 'foot_training_eligible' in override and not isinstance(override['foot_training_eligible'], bool):
+            raise ValueError('foot_training_eligible must be boolean')
         if 'intentional_training' in override and not isinstance(override['intentional_training'], bool):
             raise ValueError('intentional_training must be boolean')
         if any(role not in ROLES for role in override.get('segment_roles', {}).values()):
@@ -467,7 +496,9 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                     (dt(continuous['end_utc'])-dt(continuous['start_utc'])).total_seconds())) >= .9)
                 spans = dt(continuous['start_utc']) <= left and dt(continuous['end_utc']) >= right
                 measured_motion = missing >= 20 and evidence['motion_duration_s'] >= 10
-                plausible = evidence['max_distance_speed_mps'] <= 12
+                speed_cap = 8 if source['sport'] in ('running', 'walking', 'hiking') else 12
+                evidence['plausibility_speed_cap_mps'] = speed_cap
+                plausible = evidence['max_distance_speed_mps'] <= speed_cap
                 strong = primary_delta is not None and consistent and evidence['aligned_before_and_after'] and spans and plausible and not source_overlap
                 auto = strong and measured_motion and (explicit or gap_kind == 'record_gap' and paired_high) and (right-left).total_seconds() <= 1800
                 evidence['same_workout_high_confidence'] = paired_high
@@ -511,7 +542,7 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 if evidence is None: evidence = {'reason': 'No dense continuous distance samples at split boundary'}
                 evidence['recoverable_distance_m'] = evidence.get('distance_m')
                 extra = evidence.get('distance_m')
-                movement = extra is not None and extra >= 5 and evidence.get('motion_duration_s', 0) >= 5 and evidence.get('max_distance_speed_mps', 99) <= 12
+                movement = extra is not None and extra >= 5 and evidence.get('motion_duration_s', 0) >= 5 and evidence.get('max_distance_speed_mps', 99) <= (8 if all(r['sport'] in ('running', 'walking', 'hiking') for r in primary) else 12)
                 distance_agreement = baseline is not None and continuous.get('distance_m') is not None and abs(continuous['distance_m'] - baseline) <= max(150, baseline*.05)
                 auto = extra is not None and (extra < 50 or movement and distance_agreement and (right-left).total_seconds() <= 300)
                 item, decision = issue('split_activity_boundary', left, right, continuous, evidence, auto=auto, extra=extra)
@@ -629,10 +660,19 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
             for field in ('active_distance_m', 'active_pace_min_mile'):
                 record(field, base_ids, 'unknown_full_coverage_while_distance_unresolved', 'incomplete', 'low')
         add_training_fields(cw, primary, override, confirmed_training, confirmed_running, walk_repair, hike_repair, unresolved, source_overlap)
+        if cw['training_distance_status'] == 'unclassified':
+            item, intent_decision = issue('unclassified_training_intent', evidence={'measured_physical_distance_m': confirmed_training,
+                'reason': 'Training intent or foot/non-foot modality is not established; set a persistent workout override.'}, extra=None)
+            if intent_decision:
+                raise ValueError('Training intent review requires a workout intentional_training/foot_training_eligible override, not a gap decision')
+            item['confidence'] = 'low'
+            cw['canonical_status'] = 'ambiguous'
+            notes.append('Training intent unclassified; measured physical distance retained outside official foot mileage.')
         for field in TRAINING_FIELDS:
             record(field, ledger['run_distance_m']['source_activity_ids'] if field == 'running_distance_m' else ledger['distance_m']['source_activity_ids'] if 'training' in field or 'physical' in field else base_ids + repair_ids,
-                   'intentional_training_measured_portions' if 'training' in field else 'source_sport_and_measured_gap_modality',
-                   'confirmed_portions' if unresolved else 'whole_workout')
+                   'confirmed_intentional_foot_policy' if 'training' in field else 'source_sport_and_measured_gap_modality',
+                   'unclassified_intent' if cw['training_distance_status'] == 'unclassified' else 'confirmed_portions' if unresolved else 'whole_workout',
+                   'low' if cw['training_distance_status'] == 'unclassified' else 'high')
         for field in ('walking_distance_m', 'hiking_distance_m'):
             if field in override: record(field, [], 'user_reported_modality_distance', 'user_confirmed')
         if 'run_distance_m' in override: record('running_distance_m', [], 'user_reported_modality_distance', 'user_confirmed')
@@ -641,7 +681,7 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
         gap_candidates = sum(max(0, item['candidate_additional_distance_m'] or 0) for item in local_issues if item['requires_user_review'] and item['classification'] != 'conflicting_distance')
         whole_candidates = max((max(0, item['candidate_additional_distance_m'] or 0) for item in local_issues if item['requires_user_review'] and item['classification'] == 'conflicting_distance'), default=0)
         cw['candidate_additional_distance_m'] = max(gap_candidates, whole_candidates)
-        cw['candidate_training_distance_m'] = cw['candidate_additional_distance_m'] if cw['intentional_training'] and cw['candidate_additional_distance_m'] > 0 else (None if unresolved and cw['intentional_training'] else 0)
+        cw['candidate_training_distance_m'] = cw['candidate_additional_distance_m'] if cw['counts_toward_training_totals'] and cw['candidate_additional_distance_m'] > 0 else (None if unresolved and cw['counts_toward_training_totals'] or cw['training_distance_status'] == 'unclassified' else 0)
         cw['provisional_training_distance_m'] = (cw['training_distance_m'] + cw['candidate_training_distance_m']) if cw['training_distance_m'] is not None and cw['candidate_training_distance_m'] is not None else None
         if not unresolved: cw['provisional_distance_m'] = cw['distance_m']; cw['provisional_run_distance_m'] = cw['run_distance_m']
         cw['distance_miles'] = cw['distance_m'] / MILE if cw['distance_m'] is not None else None
@@ -700,7 +740,7 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
             record(field, [r['activity_id'] for r in members], 'canonical_relationship_and_issue_rules', 'whole_workout', cw['confidence'])
         cw['revision'] = stable_id('revision_', [json.dumps(cw, sort_keys=True, default=str), *(r.get('content_sha256', r['activity_id']) for r in members), json.dumps(override, sort_keys=True), json.dumps(local_issues, sort_keys=True, default=str)])
         for field, metadata in ledger.items():
-            unit = 'miles' if field.endswith('_miles') else 'm' if field.endswith('_m') else 's' if field.endswith('_s') else 'min/mile' if 'pace' in field else 'bpm' if field.endswith('_bpm') else 'ISO UTC' if field.endswith('_utc') else 'native source unit'
+            unit = 'miles' if field.endswith(('_miles', '_mi')) else 'm' if field.endswith('_m') else 's' if field.endswith('_s') else 'min/mile' if 'pace' in field else 'bpm' if field.endswith('_bpm') else 'ISO UTC' if field.endswith('_utc') else 'native source unit'
             provenance.append({'canonical_workout_id': cw_id, 'field_name': field, 'value': cw.get(field), 'unit': unit, **metadata})
         for item in local_issues:
             issues.append(item)
@@ -710,7 +750,7 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                     'suggested_interpretation': 'Measured outing movement counts as training; unresolved evidence or unrelated movement needs review.',
                     'candidate_distance_m': item['candidate_additional_distance_m'], 'candidate_elapsed_time_s': (dt(item['end_utc']) - dt(item['start_utc'])).total_seconds() if item['start_utc'] and item['end_utc'] else None,
                     'confidence': item['confidence'],
-                    'question_for_user': 'Was this movement within the intentional training outing (running, walking, hiking, or unknown), a stationary stop, unrelated movement/separate activity, or unsure? For distance conflicts, which source is supported?',
+                    'question_for_user': ('Was this an intentional foot-training workout? Set workouts[canonical_workout_id].intentional_training to true or false in the persistent resolutions file.' if item['classification'] == 'unclassified_training_intent' else 'Was this movement within the intentional training outing (running, walking, hiking, or unknown), a stationary stop, unrelated movement/separate activity, or unsure? For distance conflicts, which source is supported?'),
                     'user_decision': item['user_decision'], 'resolution': item['resolution']})
         workouts.append(cw)
         for item, decision, evidence, secondary_row in separate_gaps:
@@ -735,8 +775,8 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 summary_note='User-separated measured secondary-device gap; excluded from original parent distance.')
             for field in ('distance_source_activity_ids','elapsed_source_activity_ids'): extra[field]=[secondary_row['activity_id']]
             for field in ('pace_source_activity_ids','hr_source_activity_ids','elevation_source_activity_ids'): extra[field]=[]
-            add_training_fields(extra, [{'sport': decision['sport'], 'distance_m': distance}], {}, distance, extra['run_distance_m'])
-            extra['candidate_training_distance_m'] = 0; extra['provisional_training_distance_m'] = distance
+            add_training_fields(extra, [{'sport': decision['sport'], 'distance_m': distance}], {'intentional_training': decision.get('intentional_training', False)}, distance, extra['run_distance_m'])
+            extra['candidate_training_distance_m'] = 0; extra['provisional_training_distance_m'] = extra['training_distance_m']
             extra.pop('revision',None); extra['revision']=stable_id('revision_', [json.dumps(extra,sort_keys=True,default=str),json.dumps(decision,sort_keys=True)])
             workouts.append(extra)
             relationships.append({'canonical_workout_id':extra_id,'source_activity_id':secondary_row['activity_id'],
@@ -776,7 +816,7 @@ def canonical_summaries(workouts, weekly=False):
             return sum(values) if values else None
         distances = [w['run_distance_miles'] for w in runs if w['run_distance_miles'] is not None]
         durations = [w['elapsed_duration_s'] for w in items if w['elapsed_duration_s'] is not None]
-        training = [w for w in items if w['intentional_training']]
+        training = [w for w in items if w['counts_toward_training_totals'] or w['training_distance_status'] == 'unclassified']
         confirmed = [w['training_distance_m'] for w in training if w['training_distance_m'] is not None]
         training_miles = sum(confirmed) / MILE if confirmed else (0 if not training else None)
         training_complete = all(w['training_distance_complete'] for w in training)
@@ -791,13 +831,17 @@ def canonical_summaries(workouts, weekly=False):
             'candidate_additional_training_miles': known_candidates if all(v is not None for v in candidates) else None,
             'known_candidate_additional_training_miles': known_candidates,
             'training_miles_including_candidates': training_miles + known_candidates if training_miles is not None and all(v is not None for v in candidates) else None,
-            'training_workout_count': len(training),
+            'training_workout_count': sum(w['counts_toward_training_totals'] for w in training),
+            'unclassified_training_workout_count': sum(w['training_distance_status'] == 'unclassified' for w in training),
+            'known_unclassified_training_miles': sum(w['unclassified_training_distance_m'] for w in training if w['unclassified_training_distance_m'] is not None) / MILE,
+            'unclassified_training_miles': sum_complete(training, 'unclassified_training_distance_m') / MILE if training and sum_complete(training, 'unclassified_training_distance_m') is not None else (0 if not training else None),
+            'cycling_duration_s': sum_complete([w for w in items if w['sport'] == 'cycling'], 'cycling_duration_s') if any(w['sport'] == 'cycling' for w in items) else 0,
             'long_training_outing_miles': max((w['training_distance_miles'] for w in training if w['training_distance_miles'] is not None), default=None),
         }
         for field in ('running_distance_m', 'walking_distance_m', 'hiking_distance_m', 'unknown_training_distance_m', 'other_training_distance_m'):
             training_summary[field.removesuffix('_m') + '_miles'] = sum_complete(training, field) / MILE if training and sum_complete(training, field) is not None else (0 if not training else None)
         out.append({'week_starting_local' if weekly else 'date_local': day,
-            'counting_basis': 'canonical_confirmed_intentional_training', **training_summary, 'activity_count': len(items), 'canonical_workout_count': len(items),
+            'counting_basis': 'canonical_confirmed_intentional_foot_training', **training_summary, 'activity_count': len(items), 'canonical_workout_count': len(items),
             'source_segment_count': sum(w['source_segment_count'] for w in items), 'running_miles': None if unresolved else known,
             'workout_segment_count': sum(w['segment_count'] for w in items),
             'known_running_miles': known, 'provisional_running_miles': provisional,

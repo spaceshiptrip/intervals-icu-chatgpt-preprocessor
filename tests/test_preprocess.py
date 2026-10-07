@@ -264,6 +264,10 @@ class PackagingTests(unittest.TestCase):
             with patch('sys.argv',argv),contextlib.redirect_stdout(io.StringIO()): self.assertEqual(main(),0)
             current=out/'Garmin_Amazfit_Training_Normalized.zip'
             self.assertTrue(current.exists()); self.assertFalse((out/'archive').exists())
+            with zipfile.ZipFile(current) as z:
+                self.assertNotIn('docs/CLAUDE_REVIEW_V2.md',z.namelist())
+                self.assertNotIn('docs/CONTEXT_HANDOFF_PENDING_REVIEW.md',z.namelist())
+                self.assertNotIn(str(root).encode(),z.read('coverage_report.json'))
             with patch('sys.argv',argv+['--archive']),contextlib.redirect_stdout(io.StringIO()) as stdout: self.assertEqual(main(),0)
             snapshots=list((out/'archive').iterdir()); self.assertEqual(len(snapshots),1)
             self.assertEqual(current.read_bytes(),snapshots[0].read_bytes())

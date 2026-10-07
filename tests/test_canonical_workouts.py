@@ -440,7 +440,7 @@ class CanonicalScenarios(unittest.TestCase):
         self.assertFalse(summary['training_mileage_complete'])
 
     def test_walking_and_hiking_sources_count_toward_training(self):
-        walk = source('walk', distance=1000); walk['sport'] = 'walking'
+        walk = source('walk', distance=1000, name='Recovery Walk'); walk['sport'] = 'walking'
         hike = source('hike', start=START+timedelta(hours=3), distance=2000); hike['sport']='hiking'
         result = normalize([walk, hike]); summary=canonical_summaries(result['canonical_workouts'])[0]
         self.assertEqual(summary['training_miles'], 3000 / MILE)

@@ -166,6 +166,15 @@ def print_coverage(report, canonical=None):
     if canonical is not None: print('  Newest canonical workout: '+str(max((w['start_local'] for w in canonical),default=None)),flush=True)
 
 
+def shareable_coverage(value):
+    """Remove local input directories from the upload-facing coverage report."""
+    if isinstance(value, dict):
+        return {k: Path(v).name if k == 'source_path' and isinstance(v, str) else shareable_coverage(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [shareable_coverage(v) for v in value]
+    return value
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--intervals-fit',type=Path,required=True);parser.add_argument('--activities-csv',type=Path)
     parser.add_argument('--garmin-source',type=Path,action='append');parser.add_argument('--output',type=Path,default=Path('output'))

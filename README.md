@@ -10,7 +10,7 @@ Local Python 3.13 project. Originals are read only; ZIP members are decoded in m
 python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-python preprocess_fit.py --input "/Users/jtorres/Downloads/i284770_fit_files(1).zip" --output output --activities-csv "/Users/jtorres/Downloads/i284770_activities(2).csv" --device-map data/device_mapping_current.csv
+python preprocess_fit.py --input "data/i284770_fit_files(1).zip" --output output --activities-csv "data/i284770_activities(2).csv" --device-map data/device_mapping_current.csv
 python -m unittest discover -s tests -v
 ```
 
@@ -19,7 +19,7 @@ Upload `output/Garmin_Amazfit_Training_Normalized.zip`. Add a separately downloa
 The cumulative export uses one stable ZIP filename, replaced on each successful run. No dated ZIP is created by default. To keep an occasional snapshot, add `--archive`:
 
 ```bash
-python preprocess_fit.py --input "/Users/jtorres/Downloads/i284770_fit_files(1).zip" --output output --activities-csv "/Users/jtorres/Downloads/i284770_activities(2).csv" --device-map data/device_mapping_current.csv --archive
+python preprocess_fit.py --input "data/i284770_fit_files(1).zip" --output output --activities-csv "data/i284770_activities(2).csv" --device-map data/device_mapping_current.csv --archive
 ```
 
 The current ZIP is updated first, then an identical copy is saved under `output/archive/Garmin_Amazfit_Training_Normalized_YYYY-MM-DD_HHMMSS_microseconds.zip`. The timestamp uses America/Los_Angeles; unique filenames preserve multiple snapshots made on the same day. The archive directory is created automatically, and both ZIP paths are printed. Only the completed ZIP is copied; intermediate CSV files are not separately archived. A failed parse or package build leaves the previous current ZIP intact and creates no snapshot; diagnostic CSVs may reflect the failed attempt. If copying a requested snapshot fails, the successfully updated current ZIP remains available and the command reports an error.
@@ -40,7 +40,7 @@ Set `elevation_source` to `original` or `intervals_corrected` **only with extern
 - `composite_duplicate_groups.csv`: one continuous activity versus two or more sequential activities from another device, member IDs, confidence, summed distance, full window, coverage, between-segment gaps and preferred source role.
 - `paired_activity_comparison.csv`: all candidate comparisons; A=Garmin and B=Amazfit for confirmed cross-watch pairs, otherwise device labels identify A/B. Composite rows compare a virtual combined segment record with the continuous recording; `comparison_type`, `continuous_activity_id` and `segment_activity_ids` distinguish them. Virtual records are never added to the master activity CSV. Composite elapsed duration is the sum of segment elapsed durations; the separate segment time window includes gaps. Signed differences are B minus A. Missing values stay blank. Original/corrected Amazfit elevation has separate comparisons against Garmin, including absolute and signed percent differences.
 - `elevation_comparison_summary.csv`: median signed/absolute elevation differences and signed percent difference by terrain and elevation provenance. Only high/medium Garmin/Amazfit comparisons contribute; individual members of composites are excluded in favor of the combined comparison. Garmin is a comparison reference, not ground truth. Empty pair sets have blank medians, not zero error.
-- `daily_training_summary.csv`, `weekly_training_summary.csv`: canonical physical-workout parents only, grouped by local start date; Monday–Sunday weeks. `training_miles` is the official confirmed total of intentional training across modalities; confirmed partial mileage stays visible when full distance is unresolved. Candidates and completeness are separate. Legacy `running_miles` remains running-only and may be null for unresolved running coverage. Source counting flags are retained as legacy matcher annotations, not the canonical counting basis. Running miles include trail miles (trail is a subset); cycling is separately identifiable. The broader training total includes all intentional source sports, with other-sport distance kept separate from foot modalities. Multisport components remain available in session JSON and are not allocated to running/cycling totals. Sums include available measurements only; coverage counts show missing ascent and training load. Duration-weighted HR uses positive timer durations with measured HR. Intervals load, FIT load and training stress score are separate.
+- `daily_training_summary.csv`, `weekly_training_summary.csv`: canonical physical-workout parents only, grouped by local start date; Monday–Sunday weeks. `training_miles` is the official confirmed total of intentional foot-based training; confirmed partial mileage stays visible when full distance is unresolved. Candidates and completeness are separate. Legacy `running_miles` remains running-only and may be null for unresolved running coverage. Source counting flags are retained as legacy matcher annotations, not the canonical counting basis. Running miles include trail miles (trail is a subset); cycling is separately identifiable. Cycling is excluded from primary training miles and retains separate cycling miles/duration. Generic standalone walks require intent confirmation and retain measured unclassified distance outside official totals. Multisport components remain available in session JSON and are not allocated to running/cycling totals. Sums include available measurements only; coverage counts show missing ascent and training load. Duration-weighted HR uses positive timer durations with measured HR. Intervals load, FIT load and training stress score are separate.
 - `data_quality.csv`: inventory, parsing failures/exclusions, local year/device/sport counts, coverage, missing rates, candidate counts, suspicious values, units/timezone notes. CRC/structural errors reject the file and are reported; the program finishes other files and exits 1 if any file failed, preserving the previous current ZIP.
 - `device_mapping_template.csv`: editable helper included in the ZIP to preserve confirmed device/provenance overrides for reproducibility.
 
@@ -110,7 +110,7 @@ Tests cover the real October 5 and September 29 FITs, three-segment composites, 
 
 ## Canonical workouts and review
 
-New outputs: `canonical_workouts.csv`, `workout_segments.csv`, `source_relationships.csv`, `field_provenance.csv`, `reconstruction_issues.csv`, `reconstruction_review.csv`, `canonical_dataset_manifest.json`. The logical schema is `canonical-workout-2`; all sources and prior pair/composite comparison outputs remain available. See [model/schema and decision examples](docs/CANONICAL_WORKOUT_MODEL.md).
+New outputs: `canonical_workouts.csv`, `workout_segments.csv`, `source_relationships.csv`, `field_provenance.csv`, `reconstruction_issues.csv`, `reconstruction_review.csv`, `canonical_dataset_manifest.json`. The logical schema is `canonical-workout-3`; all sources and prior pair/composite comparison outputs remain available. See [model/schema and decision examples](docs/CANONICAL_WORKOUT_MODEL.md).
 
 The processor uses decoded records/timer events locally for gap evidence, while the routine ZIP omits records and coordinates. Aligned, dense secondary movement can support repair even when Intervals omits timer events. Conflicting distances, sparse samples, weak alignment or unsupported timing remain reviewable. Strongly supported movement within the training outing counts regardless of uncertain gait; uncertain modality stays explicitly unknown. Garmin's recorded-portion pace/HR/elevation stay separately sourced; repaired distance is never divided by an incomplete Garmin timer.
 
@@ -124,8 +124,8 @@ Canonical bridge import is pending schema/counting/lifecycle agreement with the 
 Fresh inputs are selected by their activity timestamps, never download time. Preflight example:
 
 ```bash
-python source_coverage.py --intervals-fit "/Users/jtorres/Downloads/i284770_fit_files(1).zip" --activities-csv "/Users/jtorres/Downloads/i284770_activities(2).csv" --output output
-python preprocess_fit.py --input "/Users/jtorres/Downloads/i284770_fit_files(1).zip" --activities-csv "/Users/jtorres/Downloads/i284770_activities(2).csv" --device-map data/device_mapping_current.csv --output output
+python source_coverage.py --intervals-fit "data/i284770_fit_files(1).zip" --activities-csv "data/i284770_activities(2).csv" --output output
+python preprocess_fit.py --input "data/i284770_fit_files(1).zip" --activities-csv "data/i284770_activities(2).csv" --device-map data/device_mapping_current.csv --output output
 ```
 
 Every build prints source counts and oldest/newest activity times, warnings and newest canonical start before replacing the stable ZIP. `coverage_report.json` records exact input paths/hashes, member hashes, date coverage, missing IDs and duplicate checks. `source_inventory.csv` is the GPS-free activity index across compared sources. FITs remain primary detail; activities CSV only indexes/enriches them. Missing CSV-only activities are not fabricated FIT workouts. Use repeated `--garmin-source PATH` to choose independent Garmin FIT directories/ZIPs explicitly; by default the known sibling filestore/activity exports are checked when available.
@@ -145,3 +145,11 @@ docker compose run --rm --no-deps -e MANUAL_START_DATE=2026-08-11 -e MANUAL_END_
 This full historical range writes the existing local InfluxDB and retains files; that range was **not run** as part of this change. Only a single-day October 6 wrapper verification was run. Avoid overlapping manual and scheduled fetches. Raw filestore files are ignored by Git. Never package retained FITs or raw GPS into the normalized ZIP.
 
 For the repeatable operational commands and wrapper, see [Garmin FIT retrieval](docs/GARMIN_FIT_RETRIEVAL.md). Use `.venv/bin/python scripts/fetch_garmin_fits.py --check`, a current-day fetch without flags, or `--start YYYY-MM-DD --end YYYY-MM-DD` for an inclusive backfill.
+
+## Accepted foot-mileage policy and snapshot lifecycle (v3)
+
+Primary training miles include intentional running, hiking and walking, including recovery walks and foot movement within a run outing. Cycling stays separate. `canonical_workouts.csv.confirmed_training_distance_mi` is the designated bridge field and equals `training_distance_miles`; daily/weekly `training_miles` sums it once per active parent. Generic walks without clear training intent have null official mileage and a review row. Set a persistent workout `intentional_training` boolean to confirm/exclude them; unknown is not zero.
+
+The [scoped snapshot contract](docs/CANONICAL_SNAPSHOT_CONTRACT.md) specifies retirement/supersession, traceable source keys, old/new date recomputation and complete scope replacement. Use one output directory per `--snapshot-scope` (default jay-training). Coverage shrink is refused unless explicitly acknowledged with `--allow-source-removals`. The bridge has not implemented atomic application/raw-import migration: current output is for reviewed analysis, not an additive bridge import.
+
+Current v3 real export: 116 sources, 78 workouts, 23 reviews (22 unclassified walks and Sep 7). Confirmed foot miles ~220.006487; cycling ~25.365615; unclassified walks ~22.368742. Aug 26/Sep 18 follow accepted preferred-source decisions. Sep 7 measured gap has failed alignment: 13.563986 mi confirmed, 618.13 m additional provisional. Oct 5 remains 8.612223 mi and Oct 6 2.768227 mi. The implementation awaits independent Claude review.

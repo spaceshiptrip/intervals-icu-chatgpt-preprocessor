@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Local canonical workout snapshot v2 (not a bridge API contract)",
+  "title": "Local canonical workout snapshot v3 (bridge application pending)",
   "type": "array",
   "items": {
     "type": "object",
@@ -80,11 +80,17 @@
       "unknown_training_distance_m",
       "candidate_training_distance_m",
       "provisional_training_distance_m",
-      "modality_basis"
+      "modality_basis",
+      "training_intent_status",
+      "foot_training_eligible",
+      "unclassified_training_distance_m",
+      "confirmed_training_distance_mi",
+      "cycling_distance_m",
+      "cycling_duration_s"
     ],
     "properties": {
       "schema_version": {
-        "const": "canonical-workout-2"
+        "const": "canonical-workout-3"
       },
       "canonical_workout_id": {
         "type": "string",
@@ -393,7 +399,10 @@
         "type": "string"
       },
       "intentional_training": {
-        "type": "boolean"
+        "type": [
+          "boolean",
+          "null"
+        ]
       },
       "training_distance_m": {
         "type": [
@@ -410,7 +419,9 @@
           "confirmed",
           "confirmed_partial",
           "unknown",
-          "excluded"
+          "excluded",
+          "non_foot",
+          "unclassified"
         ]
       },
       "training_distance_requires_user_review": {
@@ -488,6 +499,47 @@
       },
       "modality_basis": {
         "type": "string"
+      },
+      "training_intent_status": {
+        "enum": [
+          "intentional",
+          "incidental",
+          "unclassified"
+        ]
+      },
+      "foot_training_eligible": {
+        "type": [
+          "boolean",
+          "null"
+        ]
+      },
+      "unclassified_training_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "confirmed_training_distance_mi": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "cycling_distance_m": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "cycling_duration_s": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0
       }
     }
   }

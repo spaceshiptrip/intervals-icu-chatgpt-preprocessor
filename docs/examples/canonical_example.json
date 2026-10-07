@@ -1,5 +1,5 @@
 {
-  "schema_version": "canonical-workout-2",
+  "schema_version": "canonical-workout-3",
   "synthetic": true,
   "description": "Test fixture: Garmin explicit 300 s pause omits 750 m while dense Amazfit samples show movement. Not measured October 6 data.",
   "source_summary": [
@@ -18,7 +18,7 @@
   ],
   "canonical_workouts": [
     {
-      "schema_version": "canonical-workout-2",
+      "schema_version": "canonical-workout-3",
       "canonical_workout_id": "cw_d9444fff27d40220f4b2",
       "session_group_id": "cw_d9444fff27d40220f4b2",
       "local_date": "2026-10-06",
@@ -71,12 +71,18 @@
       "anaerobic_training_effect": null,
       "summary_note": "750.0 m recovered from Amazfit measured gap evidence; Garmin pace covers recorded portions.",
       "counts_toward_training_totals": true,
+      "training_intent_status": "intentional",
+      "foot_training_eligible": true,
+      "cycling_distance_m": 0,
+      "cycling_duration_s": 0,
+      "unclassified_training_distance_m": 0,
       "intentional_training": true,
       "training_distance_m": 3000.0,
       "training_distance_complete": true,
       "training_distance_status": "confirmed",
       "training_distance_requires_user_review": false,
       "training_distance_miles": 1.8641135767120018,
+      "confirmed_training_distance_mi": 1.8641135767120018,
       "total_physical_outing_distance_m": 3000.0,
       "total_physical_outing_distance_miles": 1.8641135767120018,
       "running_distance_m": 3000.0,
@@ -108,7 +114,7 @@
         "a"
       ],
       "source_segment_count": 1,
-      "revision": "revision_2f815dba892ca9a99e7d"
+      "revision": "revision_dce56794c2f16dd2d79f"
     }
   ],
   "field_provenance": [
@@ -544,6 +550,156 @@
     },
     {
       "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "training_intent_status",
+      "value": "intentional",
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "confirmed_intentional_foot_policy",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "foot_training_eligible",
+      "value": true,
+      "unit": "native source unit",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "confirmed_intentional_foot_policy",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "unclassified_training_distance_m",
+      "value": 0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "confirmed_intentional_foot_policy",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "confirmed_training_distance_mi",
+      "value": 1.8641135767120018,
+      "unit": "miles",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "confirmed_intentional_foot_policy",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "cycling_distance_m",
+      "value": 0,
+      "unit": "m",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "source_sport_and_measured_gap_modality",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
+      "field_name": "cycling_duration_s",
+      "value": 0,
+      "unit": "s",
+      "source_activity_ids": [
+        "a",
+        "g"
+      ],
+      "method": "source_sport_and_measured_gap_modality",
+      "coverage_scope": "whole_workout",
+      "confidence": "high",
+      "coverage_intervals": [
+        {
+          "source_activity_id": "a",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        },
+        {
+          "source_activity_id": "g",
+          "start_utc": "2026-10-06T17:00:00+00:00",
+          "end_utc": "2026-10-06T17:20:00+00:00"
+        }
+      ]
+    },
+    {
+      "canonical_workout_id": "cw_d9444fff27d40220f4b2",
       "field_name": "intentional_training",
       "value": true,
       "unit": "native source unit",
@@ -551,7 +707,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -576,7 +732,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -601,7 +757,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -626,7 +782,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -651,7 +807,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -676,7 +832,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -701,7 +857,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -726,7 +882,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -876,7 +1032,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -901,7 +1057,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -951,7 +1107,7 @@
         "a",
         "g"
       ],
-      "method": "intentional_training_measured_portions",
+      "method": "confirmed_intentional_foot_policy",
       "coverage_scope": "whole_workout",
       "confidence": "high",
       "coverage_intervals": [
@@ -1486,6 +1642,7 @@
         "primary_distance_during_gap_m": 0.0,
         "aligned_before_and_after": true,
         "recoverable_distance_m": 750.0,
+        "plausibility_speed_cap_mps": 8,
         "same_workout_high_confidence": true,
         "whole_session_distance_consistent": true,
         "motion_confirmed_not_pause_intent": true
@@ -1497,5 +1654,6 @@
       "user_decision": null
     }
   ],
-  "expected_daily_running_miles": 1.8641135767120018
+  "expected_daily_running_miles": 1.8641135767120018,
+  "expected_daily_training_miles": 1.8641135767120018
 }

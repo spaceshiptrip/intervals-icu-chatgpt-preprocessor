@@ -104,8 +104,8 @@ Compare all current sources from the preprocessor checkout:
 
 ```bash
 .venv/bin/python source_coverage.py \
-  --intervals-fit "/Users/jtorres/Downloads/i284770_fit_files(1).zip" \
-  --activities-csv "/Users/jtorres/Downloads/i284770_activities(2).csv" \
+  --intervals-fit "data/i284770_fit_files(1).zip" \
+  --activities-csv "data/i284770_activities(2).csv" \
   --output output
 ```
 

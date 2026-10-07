@@ -1,3 +1,4 @@
+import json
 """Inventory checks use activity times, distinguish index-only Garmin exports and retain missing IDs."""
 import csv
 import io
@@ -63,3 +64,15 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(timestamp('2026-08-01T08:00:00+00:00').hour,8)
 
 if __name__=='__main__': unittest.main()
+
+
+class ShareableCoverageTests(unittest.TestCase):
+    def test_paths_are_redacted_without_mutating_inventory_or_hashes(self):
+        from source_coverage import shareable_coverage
+        report={'sources':[{'source_path':'/Users/jtorres/private/input.zip','source_sha256':'abc'}],
+                'auxiliary_inputs':[{'source_path':'/Users/jtorres/private/resolutions.json'}]}
+        out=shareable_coverage(report)
+        self.assertEqual(out['sources'][0]['source_path'],'input.zip')
+        self.assertEqual(out['sources'][0]['source_sha256'],'abc')
+        self.assertNotIn('/Users',json.dumps(out))
+        self.assertEqual(report['sources'][0]['source_path'],'/Users/jtorres/private/input.zip')
