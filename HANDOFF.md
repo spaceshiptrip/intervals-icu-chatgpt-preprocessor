@@ -1,6 +1,17 @@
 # Preprocessor handoff — read first
 
-Updated 2026-10-07 by Preprocessor Codex. This repository owns FIT decoding, source matching, canonical workout reconstruction, normalized exports, tests, and local user review. Preprocessor Claude reviews and extends this same pipeline; do not replace it with a competing implementation. Read [Garmin retrieval operations](docs/GARMIN_FIT_RETRIEVAL.md), [README.md](README.md), [canonical model](docs/CANONICAL_WORKOUT_MODEL.md), and [shared workflow](docs/WORKFLOW.md) before editing.
+Updated 2026-10-07 by Preprocessor Codex. This repository owns FIT decoding, source matching, canonical workout reconstruction, normalized exports, tests, and local user review. Keep one compatible pipeline; do not replace it with a competing implementation. Read [Garmin retrieval operations](docs/GARMIN_FIT_RETRIEVAL.md), [README.md](README.md), [canonical model](docs/CANONICAL_WORKOUT_MODEL.md), and [shared workflow](docs/WORKFLOW.md) before editing.
+
+## Roles and authority
+
+The authoritative role, review and escalation rules are in the coordination repo’s [Engineering governance](https://github.com/spaceshiptrip/training-system-coordination/blob/main/docs/GOVERNANCE.md).
+
+- Preprocessor Codex is Preprocessor Dev Lead, responsible for implementation, testing, commits and repo documentation, with commit authority here.
+- Preprocessor Claude is Preprocessor Developer, implementing and reviewing work assigned by the Architecture Lead.
+- Bridge Claude is Architecture Lead across both repositories, responsible for technical architecture and review assignments.
+- The PE is Domain & Integration Authority for training semantics, cross-team contracts, invariants and final acceptance. Jay retains explicit production approval.
+
+Material designs and implementations require independent counterpart review under GOVERNANCE.md; semantic, contract, user-visible, privacy/$0 or acceptance changes return to the PE before implementation.
 
 ## Garmin retrieval operations — durable entry point
 
@@ -32,7 +43,7 @@ V3 schema/implementation was independently reviewed at 1445172 plus summary fix 
 
 ## Current implementation — accepted foot policy v3, reviewed by Claude; summary fix approved by Codex
 
-Jay confirmed PE's policy: primary training miles are all intentional foot distance, including deliberate standalone recovery walks; cycling remains separate. Valhalla is deferred. Preprocessor Codex is CogE; Claude reviews actual implementation, fixes defects and reruns tests. Bridge Codex owns shared coordination commits. No push or Sheet action is authorized.
+Jay confirmed PE's policy: primary training miles are all intentional foot distance, including deliberate standalone recovery walks; cycling remains separate. Valhalla is deferred. Roles, independent review and commit authority follow [Engineering governance](https://github.com/spaceshiptrip/training-system-coordination/blob/main/docs/GOVERNANCE.md). Bridge Codex owns shared coordination commits. No push or Sheet action is authorized.
 
 Local schema `canonical-workout-3` changes training_distance_m/miles to confirmed foot mileage and adds bridge alias confirmed_training_distance_mi, nullable intentional_training, training_intent_status, foot_training_eligible, unclassified_training_distance_m, cycling_distance_m and cycling_duration_s. Unknown walk intent does not become zero or automatically enter totals. Clearly named recovery/training walks and explicit persisted intent count; generic Lunch/Night Walk names do not prove intent. Source metrics are immutable. Mixed/unknown modality remains conservative; walking/hiking/unknown gait inside a supported foot outing counts. Summary training_miles is the official confirmed foot subtotal; candidate gaps and unclassified measured movement are separate. See [v3 model](docs/CANONICAL_WORKOUT_MODEL.md) and [snapshot contract](docs/CANONICAL_SNAPSHOT_CONTRACT.md).
 
@@ -172,7 +183,7 @@ At session start read this handoff/specs and `/Users/jtorres/Workspaces/pnb/trai
 
 Historical v1 active-window review passed 59 tests. V2 settled record-gap evidence and neutral review labels; the current v3 foot-mileage change awaits Claude review. Bridge teams should review the published schema/example before agreeing on canonical transport, retirement, raw-import migration and walk/hike counting. No automatic claim of fatigue, intent, semantic segment role or corrected elevation. The October 6 real FIT validation is complete, as recorded above.
 
-Latest shared governance clarification: Jay is product owner; Web ChatGPT is Project Engineer / Domain Lead for requirements and training semantics. This team owns internal software architecture. Surface changes to mileage meaning, run/walk/hike classification, authority/provisional status and source ownership for Project Engineer / Jay review.
+Current roles and escalation rules follow [Engineering governance](https://github.com/spaceshiptrip/training-system-coordination/blob/main/docs/GOVERNANCE.md) and the role summary above. Bridge Claude leads technical architecture across both repos; semantic and integration decisions return to the PE.
 
 Historical review request: [Claude v2 review](docs/CLAUDE_REVIEW_V2.md); current queue is the v3 request above. The exact final cross-team interface entry is prepared in [CONTEXT handoff draft](docs/CONTEXT_HANDOFF_PENDING_REVIEW.md); Claude review of c99e7ff is complete (section above) and the finalized entry is in parent CONTEXT.md, committed by Bridge Codex in parent commit 6c65538. Operational Docker mechanics alone do not change a bridge contract.
 
