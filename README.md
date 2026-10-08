@@ -4,6 +4,10 @@ Read [HANDOFF.md](HANDOFF.md) first for team coordination and [the canonical mod
 
 Local Python 3.13 project. Originals are read only; ZIP members are decoded in memory without extraction. The only third-party dependency is fitdecode (MIT licensed).
 
+## Documentation
+
+[Shared system workflow and data flow](https://github.com/spaceshiptrip/training-system-coordination/blob/main/docs/SYSTEM_WORKFLOW_AND_DATA_FLOW.md).
+
 ## Setup and rerun
 
 ```bash
