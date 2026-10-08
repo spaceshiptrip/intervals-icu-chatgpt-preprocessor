@@ -10,7 +10,7 @@ From this repo use `.venv/bin/python scripts/fetch_garmin_fits.py --check` for c
 
 Check newest FIT by decoded session start, not file modification time. Run source_coverage.py/preprocess_fit.py for cross-source freshness/missing IDs. Common problems: blocked Docker socket, omitted override, unwritable/missing bind, expired auth/rate limits, unavailable InfluxDB, or expecting enabling retention to backfill history. Raw files stay ignored and never enter the routine ZIP. Historical example commands are checkout-supported; no multi-day backfill is claimed as executed.
 
-## V1 blocking fix — canonical moving duration implemented, awaiting Claude review
+## V1 blocking fix — canonical moving duration implemented; Claude approved ce71fd6
 
 Jay/PE chose preprocessor-owned moving_duration_s, with no bridge substitutions. Read [moving-time semantics](docs/MOVING_DURATION.md) and [independent review request](docs/CLAUDE_REVIEW_MOVING_DURATION.md). Existing estimated_stationary_duration_s includes stationary samples inside primary pauses/gaps; subtracting it from timer duration would double-subtract some stops. New helpers use validated explicit FIT moving time, existing Intervals CSV Moving Time metadata, or covered sample bins with timer-pause exclusion. Timer/elapsed/recorded-active values are never copied as moving values.
 
@@ -18,7 +18,7 @@ For accepted repaired outings, a complete continuous source supplies moving time
 
 Candidate build (output/moving_duration_review/): 77/78 populated moving_duration_s and 77 revised records; zero new/retired IDs. Sep7 cw_38efeca565fcb102dcdd stays null because a pending physical gap prevents a whole-outing motion claim (Garmin source moving=10014 s, Ama=10521 s retained). Oct5=8146 s, Oct6=2212 s. Sep8 alternative=389 s; one Sep29 alternative=705 s. All populated values are nonnegative and <= canonical elapsed. Only moving_duration_s and revision changed in canonical rows; 242.375228 foot miles, one review, source rows and all existing timing/pace/distance fields remain unchanged.
 
-123 tests pass, including every requested case and explicit non-substitution, zero, coverage, source window and revision regressions. Routine normalized ZIP and original inputs/resolutions remain untouched; candidate ZIP is staged separately. Current v1 completion is held: independent Preprocessor Claude review is mandatory before updating the routine archive or handing it to Bridge Codex for the normal TEST delta import. No live importer/reset/backfill/readback is claimed. No push, deployment, Docker operation, parent edit or Sheet write occurred.
+123 tests pass, including every requested case and explicit non-substitution, zero, coverage, source window and revision regressions. Preprocessor Claude approved ce71fd6; Jay authorized promotion to the routine normalized ZIP and a preprocessor push. Original inputs/resolutions remain untouched. Bridge next action is a fresh TEST backfill, not the previously proposed 77-record update delta. No live importer/reset/backfill/readback is claimed by this team. The five-workout clock limitation below is accepted for v1 and deferred.
 
 ## Current MVP policy — historical walks counted (2026-10-07)
 
@@ -145,6 +145,27 @@ Findings:
 
 Left for Codex: review and commit the summary fix and test; then fill the commit in docs/CONTEXT_HANDOFF_PENDING_REVIEW.md, change its status to reviewed, and hand it to Bridge Codex for CONTEXT.md. Do not push.
 
+## Preprocessor Claude review — moving duration ce71fd6 (2026-10-08)
+
+Outcome: **moving duration approved; no code change.** One pre-existing elapsed-clock inconsistency (below) fails Jay's "timer ≤ elapsed" check on 5 workouts; Jay accepted it as a known v1 limitation (2026-10-08). Followed docs/CLAUDE_REVIEW_MOVING_DURATION.md plus Jay's five checks.
+
+Verified:
+- Tests: 123 pass (Python 3.13, fitdecode 0.11.0). Independent rebuild from data/ inputs (fit_filestore as Garmin source) is identical to output/moving_duration_review: canonical_workouts.csv byte-identical, manifest dataset_a43141f777c2caf97495, 78 active, 0 retired. A second run in the same directory is unchanged.
+- **No double counting across watches.** Every value comes from one watch: 73 from the preferred source's Intervals moving time, 2 from the continuous watch when it alone matches the canonical clock (Sep 8, Sep 29), 2 from the continuous watch for accepted repairs (Oct 5 8,146 s, Oct 6 2,212 s), and 2 sums of sequential same-watch Garmin segments that do not overlap (Sep 9 832 s + 1,938 s; Sep 18 4,956 s + 386 s). No value mixes Garmin and Amazfit. Each equals the source value(s) exactly.
+- **Stops subtracted once; fallback not used.** All 77 values are the source's own moving time with no subtraction. The record-based fallback ran for none of them (Intervals FITs carry no total_moving_time; the CSV value always exists). It is reached only without --activities-csv or for a user-separated gap. Inside it, timer pauses and stationary bins are removed in one pass, not twice. Keeping it is Codex's call; it is tested and does not affect current output.
+- **Bounds:** moving ≤ elapsed and moving ≤ timer hold for all 77. Timer ≤ elapsed fails on 5 (see finding).
+- **Revisions:** exactly the 77 parents with a new moving value have new revisions; all 78 IDs unchanged; no other canonical column differs from the last reviewed routine output.
+- **Mileage:** 242.375228 confirmed foot mi, unchanged.
+- **Sep 7 null is justified.** Its 618 m gap is still pending, and moving time follows the same rule as active distance/pace (unknown while the outing is unresolved). Checked both answers with temporary resolutions: include fills 10,521 s (Amazfit, whole outing); use_preferred fills 10,014 s (Garmin). Nothing else changes.
+- Candidate ZIP: no FIT, record or GPS columns, no personal resolutions, basename-only coverage paths.
+
+Finding:
+- **Medium, pre-existing (not introduced by ce71fd6): canonical elapsed uses the continuous watch's window even when the preferred Garmin recording started earlier or ended later.** On 5 duplicate_resolved workouts canonical timer_duration_s (Garmin) exceeds elapsed_duration_s (Amazfit): Sep 8 418 > 392, Sep 9 1,690 > 1,685, Sep 11 2,722 > 2,688 (Garmin started 35 s earlier), Sep 28 2,745 > 2,738, Sep 29 713 > 706. The outing clock therefore understates the outing by up to 35 s. It is also why the "canonical elapsed source" branch exists: Garmin moving time 398 s / 708 s does not fit the 392 s / 706 s clock on Sep 8 / Sep 29. Suggested fix (Codex owns the design): canonical start/end = union of the preferred and continuous windows; the Sep 8/29 special branch then becomes unnecessary, and those two would take Garmin moving like the other 73. Because the TEST reload is a fresh backfill and all revisions are changing anyway, fixing before it costs no extra bridge work. Alternatively, accept it as a known v1 limitation.
+
+**Known v1 limitation (accepted by Jay 2026-10-08, not fixed):** on those 5 workouts canonical elapsed_duration_s is up to 35 s shorter than Garmin's timer_duration_s, so consumers must not assume timer ≤ elapsed. Moving time is unaffected (always ≤ elapsed and ≤ timer). Revisit after v1 together with removing the Sep 8/29 canonical-elapsed-source branch.
+
+Jay subsequently authorized Codex to promote the reviewed output to the routine ZIP, commit/push the handoff, and publish a short coordination entry. Bridge plan per Jay: TEST reset and fresh backfill in batches of 15; large update deltas are a post-v1 bridge item. This authorizes no bridge or production operation by the preprocessor team.
+
 ## Coordination and next actions
 
 At session start read this handoff/specs and `/Users/jtorres/Workspaces/pnb/training_sheet/CONTEXT.md`. Read CONTEXT.md again immediately before editing it; preserve other teams' entries. Bridge Codex owns initial parent-repository setup, already completed. This team owns only this component. Commit component changes here and cross-team communication separately in the existing coordination repository, referencing the component commit.
@@ -164,3 +185,7 @@ Canonical workout rows, snapshot manifest and FIT/CSV/resolution inputs are byte
 Reviewed v3 contract is ready for Bridge Codex's coordination publication. Bridge import itself remains blocked until atomic scope replacement, raw-import migration, stale revision protection and transport are implemented/reviewed. Sep 7 and walk intent decisions remain PE/Jay context questions. No push, deployment, Docker operation, Sheet write or parent-repository edit occurred.
 
 Reviewed summary-fix commit: b497e15d4b8848cd791c50d58f8494a2088feec0. Final coordination text is in docs/CONTEXT_HANDOFF_PENDING_REVIEW.md for Bridge Codex to append/commit separately.
+
+## Post-v1 follow-up
+
+- Reconcile canonical start/end clocks across preferred and continuous sources for the five workouts documented in Claude’s ce71fd6 review. Evaluate union-of-source windows and whether the Sep 8/29 alternative moving-time branch can be removed. Preserve provenance and revise affected parents if values change. Accepted for v1; no clock change in this release.
