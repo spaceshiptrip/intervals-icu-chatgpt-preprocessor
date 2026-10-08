@@ -6,6 +6,8 @@ Local Python 3.13 project. Originals are read only; ZIP members are decoded in m
 
 ## Documentation
 
+[Approved system roadmap](https://github.com/spaceshiptrip/training-system-coordination/blob/main/docs/ROADMAP.md).
+
 [Shared system workflow and data flow](https://github.com/spaceshiptrip/training-system-coordination/blob/main/docs/SYSTEM_WORKFLOW_AND_DATA_FLOW.md).
 
 ## Setup and rerun
