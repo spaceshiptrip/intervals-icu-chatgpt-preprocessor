@@ -350,6 +350,122 @@ def choose_primary(members):
     return sorted((r for r in preferred if DEVICE_RANK[r['device_family']] == rank), key=lambda r: (r['start_utc'], source_key(r)))
 
 
+def moving_time_from_records(row, timeline):
+    """Estimate motion from covered sample bins, excluding timer-paused bins once.
+
+    This does not turn timer duration into moving duration. The timer is only a
+    coverage check; elapsed/explicit pauses provide coverage when timer is absent.
+    """
+    elapsed = row.get('elapsed_duration_s')
+    if not finite(elapsed) or elapsed < 0 or len(timeline.records) < 2:
+        return None
+    start = dt(row['start_utc']).timestamp()
+    end = start + elapsed
+    pauses = []
+    stopped = None
+    for event in timeline.events:
+        stamp = dt(event['timestamp_utc']).timestamp()
+        if event['event_type'] in ('stop', 'stop_all', 'stop_disable', 'stop_disable_all'):
+            if stopped is None: stopped = stamp
+        elif event['event_type'] == 'start' and stopped is not None:
+            if stamp > stopped: pauses.append((max(start, stopped), min(end, stamp)))
+            stopped = None
+    if stopped is not None: pauses.append((max(start, stopped), end))
+    pauses = [(a, b) for a, b in pauses if b > a]
+    def paused_seconds(left, right):
+        return sum(max(0, min(right, b) - max(left, a)) for a, b in pauses)
+    observed = moving = 0.0
+    for i in range(1, len(timeline.times)):
+        a, b = timeline.times[i - 1:i + 1]
+        left, right = max(a, start), min(b, end)
+        if right <= left: continue
+        active = right - left - paused_seconds(left, right)
+        if active <= 0: continue
+        if b - a > 30: return None  # Unobserved active gap: do not interpolate.
+        prev, current = timeline.records[i - 1:i + 1]
+        d0, d1 = prev.get('distance_m'), current.get('distance_m')
+        if finite(d0) and finite(d1) and 0 <= d0 <= d1:
+            speed = (d1 - d0) / (b - a)
+        elif all(finite(r.get('speed_mps')) and r['speed_mps'] >= 0 for r in (prev, current)):
+            speed = (prev['speed_mps'] + current['speed_mps']) / 2
+        else:
+            return None
+        cap = 8 if row.get('sport') in ('running', 'walking', 'hiking') else 50
+        if speed > cap: return None
+        observed += active
+        if speed >= .2: moving += active
+    expected = row.get('timer_duration_s')
+    if not finite(expected): expected = elapsed - paused_seconds(start, end)
+    if not 0 <= expected <= elapsed or abs(observed - expected) > 1:
+        return None
+    # Coverage intervals describe the recording window, not every individual bin.
+    return moving
+
+
+def source_moving_time(row, timeline):
+    """Use explicitly measured/computed moving fields; never alias timer time."""
+    elapsed = row.get('elapsed_duration_s')
+    for field, method, confidence in (
+        ('moving_duration_s', 'FIT_total_moving_time', 'high'),
+        ('intervals_moving_duration_s', 'Intervals_activity_index_moving_time', 'medium'),
+    ):
+        value = row.get(field)
+        if finite(value) and finite(elapsed) and 0 <= value <= elapsed:
+            timer = row.get('timer_duration_s')
+            if finite(timer) and value > timer + 1: continue
+            return value, method, confidence
+    value = moving_time_from_records(row, timeline)
+    return value, 'record_motion_excluding_timer_pauses' if value is not None else 'unknown_no_complete_moving_evidence', 'medium' if value is not None else 'low'
+
+
+def canonical_moving_time(cw, primary, members, continuous, timeline, issues, override, overlap):
+    """Select moving-time coverage matching the canonical outing, independently of pace."""
+    scope = 'whole_workout'
+    if overlap:
+        return None, [], 'unknown_overlapping_primary_time', 'incomplete', 'low'
+    if any(item['requires_user_review'] and item['classification'] != 'unclassified_training_intent' for item in issues):
+        return None, [], 'unknown_unresolved_outing_motion', 'incomplete', 'low'
+    selected_key = override.get('distance_source_activity_id')
+    if selected_key:
+        sources = [r for r in members if r['activity_id'] == selected_key or source_key(r) == selected_key]
+    elif cw['recovered_distance_m'] > 0:
+        # A timer-paused Garmin may miss real motion. A whole continuous source
+        # covers the accepted repaired route; its moving field already excludes stops.
+        if not continuous or dt(continuous['start_utc']) > dt(cw['start_utc']) or dt(continuous['end_utc']) < dt(cw['end_utc']):
+            return None, [], 'unknown_reconstructed_motion_coverage', 'incomplete', 'low'
+        rejected_motion = any(item['user_decision'] in ('stationary_stop', 'use_preferred', 'separate_activity') and
+                              (item['evidence_json'].get('motion_duration_s') or 0) > 0 for item in issues)
+        if rejected_motion:
+            return None, [], 'unknown_continuous_source_includes_excluded_motion', 'incomplete', 'low'
+        sources = [continuous]
+        scope = 'whole_continuous_reconstructed_outing'
+    elif 'distance_m' in override and cw['distance_m'] != sum_complete(primary, 'distance_m'):
+        return None, [], 'unknown_user_distance_change_time_coverage', 'incomplete', 'low'
+    else:
+        sources = primary
+    def measure(selected, coverage, prefix=''):
+        values = [source_moving_time(r, timeline.get(r['activity_id'], Timeline())) for r in selected]
+        ids = [r['activity_id'] for r in selected]
+        if not values or any(value is None for value, _, _ in values):
+            return None, ids, 'unknown_no_complete_moving_evidence', 'incomplete', 'low'
+        total = sum(value for value, _, _ in values)
+        if not 0 <= total <= cw['elapsed_duration_s']:
+            return None, ids, 'unknown_moving_duration_outside_elapsed_bounds', 'incomplete', 'low'
+        methods = '+'.join(sorted({method for _, method, _ in values}))
+        confidence = 'high' if all(c == 'high' for _, _, c in values) else 'medium'
+        return total, ids, prefix + ('sum_nonoverlapping_segments:' if len(selected) > 1 else '') + methods, coverage, confidence
+    result = measure(sources, scope)
+    # Existing canonical timestamps can use a slightly shorter continuous watch.
+    # Do not clamp a preferred duration to that clock. Use its actual measured
+    # moving metric only when the alternative matches the canonical window exactly.
+    if result[0] is None and sources is primary and continuous and (
+        dt(continuous['start_utc']) == dt(cw['start_utc']) and dt(continuous['end_utc']) == dt(cw['end_utc'])
+    ):
+        alternative = measure([continuous], 'whole_canonical_elapsed_source', 'canonical_elapsed_source:')
+        if alternative[0] is not None: return alternative
+    return result
+
+
 def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions=None):
     """Return canonical exports. Inputs (including source flags) remain untouched."""
     resolutions = resolutions or {'schema_version': 1, 'issues': {}, 'workouts': {}, 'session_groups': []}
@@ -738,6 +854,10 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
         cw['segment_count'] = sum(s['canonical_workout_id']==cw_id for s in segments)
         for field in ('segment_count', 'source_segment_count', 'canonical_status', 'confidence', 'requires_user_review', 'mileage_requires_user_review', 'physical_distance_requires_user_review'):
             record(field, [r['activity_id'] for r in members], 'canonical_relationship_and_issue_rules', 'whole_workout', cw['confidence'])
+        moving, moving_ids, method, coverage, confidence = canonical_moving_time(
+            cw, primary, members, continuous, timeline, local_issues, override, source_overlap)
+        cw['moving_duration_s'] = moving
+        record('moving_duration_s', moving_ids, method, coverage, confidence)
         cw['revision'] = stable_id('revision_', [json.dumps(cw, sort_keys=True, default=str), *(r.get('content_sha256', r['activity_id']) for r in members), json.dumps(override, sort_keys=True), json.dumps(local_issues, sort_keys=True, default=str)])
         for field, metadata in ledger.items():
             unit = 'miles' if field.endswith(('_miles', '_mi')) else 'm' if field.endswith('_m') else 's' if field.endswith('_s') else 'min/mile' if 'pace' in field else 'bpm' if field.endswith('_bpm') else 'ISO UTC' if field.endswith('_utc') else 'native source unit'
@@ -777,6 +897,9 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
             for field in ('pace_source_activity_ids','hr_source_activity_ids','elevation_source_activity_ids'): extra[field]=[]
             add_training_fields(extra, [{'sport': decision['sport'], 'distance_m': distance}], {'intentional_training': decision.get('intentional_training', False)}, distance, extra['run_distance_m'])
             extra['candidate_training_distance_m'] = 0; extra['provisional_training_distance_m'] = extra['training_distance_m']
+            motion_row = {**secondary_row, 'start_utc': extra['start_utc'], 'end_utc': extra['end_utc'],
+                          'elapsed_duration_s': extra['elapsed_duration_s'], 'timer_duration_s': None}
+            extra['moving_duration_s'] = moving_time_from_records(motion_row, timeline.get(secondary_row['activity_id'], Timeline()))
             extra.pop('revision',None); extra['revision']=stable_id('revision_', [json.dumps(extra,sort_keys=True,default=str),json.dumps(decision,sort_keys=True)])
             workouts.append(extra)
             relationships.append({'canonical_workout_id':extra_id,'source_activity_id':secondary_row['activity_id'],
@@ -789,8 +912,8 @@ def reconstruct(rows, pairs=(), composite_groups=(), timelines=None, resolutions
                 'distance_coverage':'user_separated_measured_gap','name':'User-separated gap movement'})
             for field in ledger:
                 provenance.append({'canonical_workout_id':extra_id,'field_name':field,'value':extra.get(field),'unit':next(p['unit'] for p in provenance if p['canonical_workout_id']==cw_id and p['field_name']==field),
-                    'source_activity_ids':item['source_activity_ids'] if extra.get(field) is not None else [],'method':'user_separated_secondary_gap' if extra.get(field) is not None else 'not_measured',
-                    'coverage_scope':'extracted_gap','confidence':'high','coverage_intervals':[{'source_activity_id':secondary_row['activity_id'],'start_utc':extra['start_utc'],'end_utc':extra['end_utc']}]})
+                    'source_activity_ids':item['source_activity_ids'] if extra.get(field) is not None else [],'method':('record_motion_excluding_timer_pauses' if field == 'moving_duration_s' else 'user_separated_secondary_gap') if extra.get(field) is not None else 'not_measured',
+                    'coverage_scope':'extracted_gap','confidence':('medium' if extra.get(field) is not None else 'low') if field == 'moving_duration_s' else 'high','coverage_intervals':[{'source_activity_id':secondary_row['activity_id'],'start_utc':extra['start_utc'],'end_utc':extra['end_utc']}]})
     unmatched = sorted((set(resolutions.get('issues', {})) | set(resolutions.get('workouts', {}))) - applied)
     return {'canonical_workouts': workouts, 'workout_segments': segments, 'source_relationships': relationships,
             'field_provenance': provenance, 'reconstruction_issues': issues, 'reconstruction_review': review,

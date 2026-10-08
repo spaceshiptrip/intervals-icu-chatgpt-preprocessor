@@ -159,3 +159,9 @@ Current v3 real export: 116 sources, 78 workouts, 23 reviews (22 unclassified wa
 For the current historical backlog, Jay/PE accepted counting all 22 autodetected foot walks. The ignored local resolutions file confirms these specific canonical IDs through the existing reviewed override mechanism and records a temporary-policy note. This is an eligibility assumption for the backlog, not inferred original intent; raw source sport/classification remains unchanged. New generic walks retain the stricter review default. Keep the local resolution file when rerunning; imports never overwrite it.
 
 Latest export: 242.375228 confirmed foot miles, cycling 25.365615 separately; week of Sep 21 now 6.193207 mi. There are 78 workouts and one non-blocking Sep 7 review (13.563986 mi confirmed + ~0.384088 mi provisional). All nine weeks have known primary totals. Schema v3 and existing matching/retirement algorithms are unchanged; 107 tests pass. Earlier 23-review/pending-walk statistics above are historical.
+
+## Canonical moving duration — v1 fix pending independent review
+
+The existing moving_duration_s field now uses explicit source moving-time metrics, including the indexed activities CSV Moving Time, with recorded-motion fallback where coverage supports it. It does not substitute timer/recorded-active duration or subtract the existing gap-stationary estimate. [Detailed selection, coverage and revision rules](docs/MOVING_DURATION.md) explain the distinction. Include --activities-csv for the available published moving metrics; without them, sparse/ambiguous recordings can legitimately remain unknown.
+
+Candidate output is staged at output/moving_duration_review/Garmin_Amazfit_Training_Normalized.zip: 77/78 durations populated; Sep7 full-outing moving time remains unknown. Affected revisions change, while mileage and IDs remain unchanged. Wait for Preprocessor Claude review before replacing the routine upload or handing it to the bridge.

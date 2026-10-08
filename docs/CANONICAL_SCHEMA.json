@@ -234,7 +234,8 @@
         "type": [
           "number",
           "null"
-        ]
+        ],
+        "description": "Canonical moving time with matching source coverage; explicit moving metrics or covered motion estimates, excluding stop/paused time once. Null for unresolved full coverage. See MOVING_DURATION.md."
       },
       "active_distance_m": {
         "type": [

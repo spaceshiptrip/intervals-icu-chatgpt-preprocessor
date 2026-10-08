@@ -584,7 +584,7 @@ def main():
     if manifest is not None: manifest_path.write_text(json.dumps(manifest,indent=2,sort_keys=True)+'\n')
     # Explicit allowlist prevents a previous detailed export entering the upload ZIP.
     root=Path(__file__).resolve().parent
-    documentation=['README.md','HANDOFF.md','docs/WORKFLOW.md','docs/CANONICAL_WORKOUT_MODEL.md','docs/CANONICAL_SCHEMA.json','docs/CANONICAL_SNAPSHOT_CONTRACT.md','docs/GARMIN_FIT_RETRIEVAL.md','scripts/fetch_garmin_fits.py','docs/examples/canonical_example.json','config/user_resolutions.example.json']
+    documentation=['README.md','HANDOFF.md','docs/WORKFLOW.md','docs/CANONICAL_WORKOUT_MODEL.md','docs/CANONICAL_SCHEMA.json','docs/CANONICAL_SNAPSHOT_CONTRACT.md','docs/MOVING_DURATION.md','docs/GARMIN_FIT_RETRIEVAL.md','scripts/fetch_garmin_fits.py','docs/examples/canonical_example.json','config/user_resolutions.example.json']
     package_names=list(exports)+['canonical_dataset_manifest.json','coverage_report.json','requirements.txt','preprocess_fit.py','canonical_workouts.py','canonical_snapshot.py','source_coverage.py','device_mapping_template.csv']+documentation
     for name in ('requirements.txt','preprocess_fit.py','canonical_workouts.py','canonical_snapshot.py','source_coverage.py',*documentation):
         target=args.output/name
